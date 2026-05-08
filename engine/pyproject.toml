@@ -1,0 +1,15 @@
+[project]
+name = "beauty-engine"
+version = "0.1.0"
+description = "Local portrait retouching Python engine."
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=2.2",
+  "pillow>=11.0",
+  "opencv-python-headless>=4.10",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"

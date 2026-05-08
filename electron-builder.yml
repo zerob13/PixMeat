@@ -1,0 +1,28 @@
+appId: local.pixmeat.app
+productName: PixMeat
+files:
+  - out/**
+  - package.json
+directories:
+  output: release
+extraResources:
+  - from: engine/dist/beauty-engine.exe
+    to: engine/beauty-engine.exe
+  - from: engine/beauty_engine
+    to: engine/beauty_engine
+    filter:
+      - "**/*"
+      - "!**/__pycache__/**"
+      - "!**/*.pyc"
+  - from: engine/requirements.txt
+    to: engine/requirements.txt
+  - from: engine/pyproject.toml
+    to: engine/pyproject.toml
+mac:
+  target:
+    - dmg
+    - zip
+win:
+  target:
+    - nsis
+    - portable
