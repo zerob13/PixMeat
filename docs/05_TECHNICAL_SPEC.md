@@ -6,17 +6,17 @@
 |---|---|
 | Desktop framework | Electron |
 | Renderer UI | React + TypeScript + Vite |
-| Styling | CSS Modules or Tailwind CSS |
-| State management | Zustand or Redux Toolkit |
+| Styling | Tailwind CSS |
+| State management | Zustand |
 | Canvas | HTML Canvas 2D first, WebGL optional later |
 | Main process | TypeScript |
-| Local engine | Python 3.11/3.12 |
+| Local engine | Python 3.11+ |
 | Image arrays | NumPy |
-| Image IO | Pillow + imageio + OpenCV |
+| Image IO | Pillow + OpenCV |
 | CV operations | OpenCV |
-| Face landmarks | MediaPipe Face Landmarker / Face Mesh |
-| Tensor acceleration | PyTorch |
-| Optional inference runtime | ONNX Runtime |
+| Face landmarks | MediaPipe Face Mesh when available, Haar/skin/heuristic fallback |
+| Tensor acceleration | PyTorch probe only in current build |
+| Optional inference runtime | Not used in current build |
 | Packaging | electron-builder + bundled Python executable |
 
 ## 2. Runtime Strategy
@@ -31,7 +31,7 @@ Python contains the processing engine because its ecosystem is stronger for:
 
 - OpenCV image processing.
 - MediaPipe face landmarks.
-- PyTorch CUDA/MPS tensor operations.
+- PyTorch CUDA/MPS availability probes.
 - Rapid algorithm iteration.
 - Golden-image testing.
 
@@ -42,22 +42,22 @@ Python contains the processing engine because its ecosystem is stronger for:
 | Backend | Platform | Purpose |
 |---|---|---|
 | CPU OpenCV/NumPy | macOS + Windows | Baseline and fallback |
-| Torch CUDA | Windows + NVIDIA | Warp, filtering, tensor color ops |
-| Torch MPS | macOS Apple Silicon | Warp, filtering, tensor color ops where supported |
-| OpenCV CUDA | Windows + NVIDIA | Optional remap/filter acceleration when custom OpenCV build is available |
+| Torch CUDA | Windows + NVIDIA | Availability probe; operation implementation is future work |
+| Torch MPS | macOS Apple Silicon | Availability probe; operation implementation is future work |
+| OpenCV CUDA | Windows + NVIDIA | Availability probe; operation implementation is future work |
 
 ### Backend Priority
 
 ```text
 Auto backend:
   Windows:
-    1. Torch CUDA
-    2. OpenCV CUDA
-    3. CPU
+    1. Report CUDA when torch probe succeeds
+    2. Report OpenCV CUDA when OpenCV probe succeeds
+    3. Use CPU processing
 
   macOS:
-    1. Torch MPS
-    2. CPU
+    1. Report MPS when torch probe succeeds
+    2. Use CPU processing
 ```
 
 ### Backend Contract
@@ -72,12 +72,10 @@ class ImageBackend:
     def is_available(self) -> bool: ...
     def remap(self, image, map_x, map_y, interpolation: str): ...
     def gaussian_blur(self, image, sigma: float): ...
-    def bilateral_like_filter(self, image, radius: int, sigma_color: float, sigma_space: float): ...
     def alpha_blend(self, base, overlay, mask): ...
-    def color_adjust_lab(self, image, mask, params): ...
 ```
 
-Backends may implement a subset. Missing operations fall back per operation.
+The interface exists for future acceleration. Current pipeline code uses CPU helpers directly.
 
 ## 4. Image Representation
 
@@ -114,13 +112,12 @@ V1 uses basic sRGB assumptions. Future RAW/color-managed workflow adds ICC profi
 ### Decode Priority
 
 1. Pillow for common formats.
-2. imageio fallback for WebP/TIFF variants.
-3. OpenCV fallback for readable formats.
+2. Pillow-supported WebP/TIFF variants.
 
 ### Encode Priority
 
 1. Pillow for JPEG/PNG/TIFF.
-2. OpenCV fallback for JPEG/PNG.
+2. Unsupported output extensions return `unsupported_format`.
 
 ### Metadata
 
@@ -194,7 +191,7 @@ export type EditParams = {
 
 ### Primary Provider
 
-MediaPipe Face Landmarker / Face Mesh.
+MediaPipe Face Mesh when available.
 
 ### Output Needed
 
@@ -221,7 +218,8 @@ class FaceLandmarks:
 | Mask | Source |
 |---|---|
 | Face oval mask | Face oval landmarks |
-| Skin mask | Face oval minus eyes/brows/lips/nostrils/hairline approximation |
+| Initial skin mask | Face oval minus eyes/brows/lips/nose/hairline approximation |
+| Refined skin mask | Initial skin mask plus conservative skin-color expansion and guided feathering |
 | Eye mask | Eye landmarks |
 | Mouth mask | Lip landmarks |
 | Teeth candidate mask | Mouth region + color heuristic |
@@ -238,45 +236,31 @@ class FaceLandmarks:
 1. Decode image
 2. Detect landmarks if missing
 3. Build masks
-4. Liquify image
-5. Transform/rebuild masks for post-liquify image
-6. Skin smoothing
-7. Skin tone even
+4. Build control handles and inverse MLS warp map
+5. Remap liquify once and blend through liquify mask
+6. Build refined skin mask on the post-liquify image
+7. Skin smoothing
 8. Blemish soften
-9. Eye bright
-10. Teeth white
-11. Brightness/soft contrast
-12. Encode output
+9. Skin tone even
+10. Eye bright
+11. Teeth white
+12. Brightness/soft contrast
+13. Encode output
 ```
 
 ## 11. Preview Quality Modes
 
 | Mode | Use | Behavior |
 |---|---|---|
-| fast | slider drag | lower preview max side, cheaper filters |
-| standard | slider release | full preview size, standard filters |
-| export | final output | original size, best filters |
+| standard | preview render | cached preview size, standard CPU filters |
+| export | final output | original size, same parameter semantics |
 
 ### Quality Settings
 
 ```python
-QUALITY = {
-    "fast": {
-        "max_side_scale": 0.75,
-        "filter_radius_scale": 0.75,
-        "debug": False,
-    },
-    "standard": {
-        "max_side_scale": 1.0,
-        "filter_radius_scale": 1.0,
-        "debug": False,
-    },
-    "export": {
-        "max_side_scale": None,
-        "filter_radius_scale": 1.0,
-        "debug": False,
-    },
-}
+preview_max_side = 1600
+render_preview uses cached preview image
+export_image uses original image
 ```
 
 ## 12. Concurrency
@@ -346,16 +330,16 @@ Engine `health` returns:
 ### macOS
 
 - Node.js LTS.
-- Python 3.11/3.12.
-- PyTorch with MPS support.
+- Python 3.11+.
+- PyTorch optional for MPS diagnostics.
 - MediaPipe Python package.
 - Xcode command line tools.
 
 ### Windows
 
 - Node.js LTS.
-- Python 3.11/3.12.
-- PyTorch CUDA build when NVIDIA GPU is available.
+- Python 3.11+.
+- PyTorch CUDA build optional for CUDA diagnostics.
 - MediaPipe Python package.
 - Visual Studio Build Tools for native packaging or future extensions.
 
@@ -373,12 +357,13 @@ pnpm build
 
 ### Python
 
-Use uv or pip-tools.
+Use venv and pip.
 
 ```bash
-uv venv
-uv pip install -r requirements.txt
-python -m beauty_engine.cli --health
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+python -m beauty_engine.cli health
 ```
 
 ## 18. Build Artifacts
@@ -386,9 +371,8 @@ python -m beauty_engine.cli --health
 ```text
 release/
   mac/
-    Beauty Retouch Local.dmg
+    PixMeat.dmg
   win/
-    Beauty Retouch Local Setup.exe
-    Beauty Retouch Local Portable.zip
+    PixMeat Setup.exe
+    PixMeat Portable.zip
 ```
-

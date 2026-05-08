@@ -23,8 +23,8 @@ def test_demo_image_detects_primary_portrait_face(demo_image_path: Path | None) 
 
     assert 0.30 <= center_x <= 0.55
     assert 0.22 <= center_y <= 0.42
-    assert 0.15 <= width / preview_width <= 0.30
-    assert 0.14 <= height / preview_height <= 0.26
+    assert 0.10 <= width / preview_width <= 0.22
+    assert 0.07 <= height / preview_height <= 0.16
 
 
 def test_demo_image_processes_with_all_major_groups(tmp_path, demo_image_path: Path | None) -> None:

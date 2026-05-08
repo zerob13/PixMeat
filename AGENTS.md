@@ -16,6 +16,7 @@ Implement a local portrait retouching desktop application with Electron UI and P
 8. Prefer deterministic algorithms.
 9. Use operation-level fallback for CUDA/MPS backend issues.
 10. Use English for code, comments, commit messages, and identifiers.
+11. Keep documentation synchronized with the current codebase. When behavior, APIs, commands, module boundaries, algorithms, tests, packaging, or known limitations change, update the relevant docs in the same change. Delete obsolete docs instead of leaving stale guidance.
 
 ## Implementation Priorities
 
@@ -66,6 +67,14 @@ On Windows, adapt virtual environment commands accordingly.
 - Add visual debug outputs for masks and landmarks.
 - Use golden-image tests after initial algorithms are stable.
 
+## Documentation Expectations
+
+- Treat `docs/` and `AGENTS.md` as versioned product and engineering contracts.
+- Update docs immediately when implementation details change.
+- Keep future plans clearly labeled as future work; do not describe unimplemented features as current behavior.
+- Remove stale documents, examples, commands, or file references when they no longer match the repository.
+- Prefer concise current-state notes over speculative implementation detail.
+
 ## UI Expectations
 
 - Implement the UI described in `03_UI_UX_SPEC.md`.
@@ -85,4 +94,3 @@ On Windows, adapt virtual environment commands accordingly.
 - Bundle Python engine into Electron resources.
 - Validate dev and packaged engine path resolution.
 - Keep macOS and Windows build configs separate where needed.
-

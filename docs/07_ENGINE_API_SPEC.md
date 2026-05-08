@@ -90,8 +90,9 @@ Engine events are also one JSON object followed by newline and use `type: "event
 ### Behavior
 
 - Returns engine state.
-- Performs lightweight backend probe.
+- Performs lightweight backend probes for CPU, CUDA, MPS, and OpenCV CUDA.
 - Does not load image models unless already initialized.
+- Current image processing remains CPU even when non-CPU devices are reported.
 
 ## 6.2 `set_backend`
 
@@ -130,9 +131,10 @@ Engine events are also one JSON object followed by newline and use `type: "event
 
 ### Behavior
 
-- Updates active backend preference.
+- Updates active backend preference for diagnostics/status.
 - Runs availability probe.
 - Falls back to CPU when requested backend is unavailable.
+- Current processing operations do not yet dispatch to CUDA/MPS/OpenCV CUDA implementations.
 
 ## 6.3 `load_image`
 
@@ -393,7 +395,8 @@ Developer-mode method.
     "paths": {
       "landmarks": "/cache/img_abc123/debug/landmarks.png",
       "face_mask": "/cache/img_abc123/debug/face_mask.png",
-      "skin_mask": "/cache/img_abc123/debug/skin_mask.png"
+      "skin_mask": "/cache/img_abc123/debug/skin_mask.png",
+      "refined_skin_mask": "/cache/img_abc123/debug/refined_skin_mask.png"
     }
   }
 }
@@ -414,6 +417,7 @@ Developer-mode method.
 | `processing_error` | Algorithm failed |
 | `job_cancelled` | Job cancelled |
 | `invalid_params` | Parameter schema invalid |
+| `unknown_method` | Unsupported JSON-RPC method |
 
 ## 8. Parameter Validation
 
@@ -444,9 +448,8 @@ The same engine should support CLI processing:
 
 ```bash
 python -m beauty_engine.cli health
-python -m beauty_engine.cli process input.jpg output.jpg --params params.json
+python -m beauty_engine.cli process input.jpg output.jpg --face-slim 30 --skin-smooth 40
 python -m beauty_engine.cli debug-masks input.jpg debug_dir/
 ```
 
 CLI helps algorithm tests and Codex implementation.
-

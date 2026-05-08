@@ -63,7 +63,7 @@ Responsible for:
 - Detecting faces and landmarks.
 - Building masks.
 - Running liquify, smoothing, beauty algorithms.
-- Selecting CPU/CUDA/MPS backend.
+- Reporting CPU/CUDA/MPS/OpenCV CUDA backend availability.
 - Exporting full-resolution result.
 
 ## 3. Recommended Communication Protocol
@@ -148,11 +148,11 @@ Each opened image creates an `ImageSession`.
     {
       "face_id": "face_1",
       "bbox": [120, 90, 420, 520],
-      "landmarks_path": "/cache/img_.../face_1_landmarks.json",
-      "confidence": 0.98
+      "confidence": 0.98,
+      "landmark_count": 468
     }
   ],
-  "created_at": "2026-05-08T12:00:00Z"
+  "active_face_id": "face_1"
 }
 ```
 
@@ -174,6 +174,10 @@ app-cache/
       debug/
         warp_grid.png
         skin_mask.png
+        refined_skin_mask.png
+        control_handles.png
+        liquify_mask.png
+        foldover_heatmap.png
 ```
 
 ### Cache Rules
@@ -193,13 +197,13 @@ engine/beauty_engine/
   io.py              # image read/write
   face.py            # face detection and landmarks
   masks.py           # face/skin/eye/mouth masks
-  liquify.py         # parameter → warp field
-  warp.py            # CPU/GPU remap implementations
-  smoothing.py       # skin smoothing
+  liquify.py         # parameter handles → inverse MLS dense warp
+  warp.py            # identity maps, OpenCV remap, MLS solver, Jacobian utilities
+  smoothing.py       # refined skin mask, guided filtering, skin retouch
   beauty.py          # color/eye/teeth adjustments
   pipeline.py        # process order orchestration
-  backends.py        # acceleration selection
-  presets.py         # parameter schema helpers
+  backends/          # backend interface and runtime probes
+  params.py          # parameter schema helpers
   diagnostics.py     # health, device info
 ```
 
@@ -214,11 +218,11 @@ Detect faces and landmarks
   ↓
 Create region masks
   ↓
-Liquify active face
+Build liquify handles, solve inverse MLS map, remap active face once
   ↓
-Recompute or transform masks after liquify where needed
+Build refined skin mask on the post-liquify image
   ↓
-Skin smoothing
+Guided-filter skin smoothing, blemish soften, tone even
   ↓
 Beauty color adjustments
   ↓
@@ -232,14 +236,16 @@ Encode preview/export result
 ```text
 User setting: Auto
   ↓
-Windows: try CUDA torch backend
+Windows: report CUDA probe if torch is available
   ↓
-Windows: try OpenCV CUDA backend if installed
+Windows: report OpenCV CUDA probe if installed
   ↓
-macOS: try MPS torch backend
+macOS: report MPS torch probe
   ↓
-Fallback: CPU OpenCV/NumPy backend
+Current processing path: CPU OpenCV/NumPy backend
 ```
+
+The current code uses backend probes for health/status only. Image operations still call the CPU OpenCV/NumPy implementations directly. Future acceleration work should preserve the same API and parameter semantics.
 
 ## 10. Preview and Export Consistency
 
@@ -337,4 +343,3 @@ The architecture supports future features:
 - RAW decoder module.
 - Native CUDA/Metal kernels.
 - Cloud backend adapter.
-

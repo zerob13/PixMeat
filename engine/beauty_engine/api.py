@@ -173,14 +173,19 @@ class EngineApi:
         debug_dir.mkdir(parents=True, exist_ok=True)
         from .debug import write_mask
 
+        refined_path = debug_dir / "refined_skin_mask.png"
+        from .smoothing import refined_skin_mask
+
         paths = {
             "landmarks": debug_dir / "landmarks.png",
             "face_mask": debug_dir / "face_mask.png",
             "skin_mask": debug_dir / "skin_mask.png",
+            "refined_skin_mask": refined_path,
         }
         draw_landmarks(image.rgb, face, paths["landmarks"])
         write_mask(paths["face_mask"], masks.face)
         write_mask(paths["skin_mask"], masks.skin)
+        write_mask(refined_path, refined_skin_mask(image.rgb, masks))
         return {"paths": {key: str(value) for key, value in paths.items()}}
 
     def _get_session(self, params: dict[str, Any]):

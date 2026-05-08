@@ -20,11 +20,7 @@ These references were used to confirm framework capabilities and platform accele
 - OpenCV CUDA module introduction: https://docs.opencv.org/3.4/d2/dbc/cuda_intro.html
 - OpenCV CUDA image warping: https://docs.opencv.org/4.x/db/d29/group__cudawarping.html
 - OpenCV remap tutorial: https://docs.opencv.org/4.x/d1/da0/tutorial_remap.html
-
-## ONNX Runtime / ONNX
-
-- ONNX Runtime official site: https://onnxruntime.ai/
-- ONNX official site: https://onnx.ai/
+- OpenCV geometric image transformations: https://docs.opencv.org/4.x/da/d54/group__imgproc__transform.html
 
 ## MediaPipe
 
@@ -33,3 +29,7 @@ These references were used to confirm framework capabilities and platform accele
 - MediaPipe Face Landmarker Python: https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker/python
 - MediaPipe Face Mesh overview: https://mediapipe.readthedocs.io/en/latest/solutions/face_mesh.html
 
+## Image Deformation / Filtering
+
+- Moving least squares image deformation: https://doi.org/10.1145/1141911.1141920
+- Guided Image Filtering: https://people.csail.mit.edu/kaiming/eccv10/index.html

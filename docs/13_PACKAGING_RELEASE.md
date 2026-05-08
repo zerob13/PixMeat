@@ -10,13 +10,13 @@
 ## 2. Packaged App Contents
 
 ```text
-Beauty Retouch Local.app / Beauty Retouch Local.exe
+PixMeat.app / PixMeat.exe
   ├─ Electron runtime
   ├─ Renderer bundle
   ├─ Main process bundle
   ├─ Python engine executable
   ├─ Python runtime dependencies
-  ├─ MediaPipe model assets
+  ├─ Python package dependencies
   └─ Default presets
 ```
 
@@ -41,7 +41,7 @@ macOS:
 cd engine
 pyinstaller --clean --onefile \
   --name beauty-engine \
-  beauty_engine/api.py
+  beauty_engine/cli_entry.py
 ```
 
 Windows:
@@ -50,10 +50,10 @@ Windows:
 cd engine
 pyinstaller --clean --onefile `
   --name beauty-engine `
-  beauty_engine/api.py
+  beauty_engine/cli_entry.py
 ```
 
-Actual PyInstaller spec should include MediaPipe model files and any dynamic libraries discovered during testing.
+Actual PyInstaller spec should include MediaPipe package assets and any dynamic libraries discovered during testing. The current repo does not have an `engine/models` directory.
 
 ## 4. Electron Packaging
 
@@ -62,17 +62,25 @@ Use electron-builder.
 ### Example `electron-builder.yml`
 
 ```yaml
-appId: com.local.beautyretouch
-productName: Beauty Retouch Local
+appId: local.pixmeat.app
+productName: PixMeat
 files:
   - app/main/dist/**
   - app/renderer/dist/**
   - package.json
 extraResources:
-  - from: engine/dist/beauty-engine${env.ENGINE_EXT}
-    to: engine/beauty-engine${env.ENGINE_EXT}
-  - from: engine/models
-    to: engine/models
+  - from: engine/dist/beauty-engine.exe
+    to: engine/beauty-engine.exe
+  - from: engine/beauty_engine
+    to: engine/beauty_engine
+    filter:
+      - "**/*"
+      - "!**/__pycache__/**"
+      - "!**/*.pyc"
+  - from: engine/requirements.txt
+    to: engine/requirements.txt
+  - from: engine/pyproject.toml
+    to: engine/pyproject.toml
 mac:
   target:
     - dmg
@@ -108,24 +116,24 @@ Dev mode can spawn Python with module args:
 python -m beauty_engine.api
 ```
 
-Packaged mode spawns engine executable directly.
+Packaged mode spawns the engine executable with `serve`, matching the CLI entry point.
 
 ## 6. Model Asset Path Resolution
 
-Engine should read model path from env var when set:
+No project-owned model directory exists in the current repo. If future detectors or parsers add model files, the engine should read model path from env var when set:
 
 ```text
 BEAUTY_ENGINE_MODEL_DIR=/path/to/resources/engine/models
 ```
 
-Fallback to package-local `engine/models` in dev.
+Fallback to package-local `engine/models` only after that directory exists.
 
 ## 7. macOS Specifics
 
 ### App Paths
 
-- Cache: `~/Library/Caches/Beauty Retouch Local`
-- Settings: `~/Library/Application Support/Beauty Retouch Local`
+- Cache: `~/Library/Caches/PixMeat`
+- Settings: `~/Library/Application Support/PixMeat`
 
 ### Signing and Notarization
 
@@ -148,12 +156,12 @@ V1 can start with Apple Silicon and Windows x64 as primary test machines, with I
 
 ### App Paths
 
-- Cache: `%LOCALAPPDATA%\Beauty Retouch Local\Cache`
-- Settings: `%APPDATA%\Beauty Retouch Local`
+- Cache: `%LOCALAPPDATA%\PixMeat\Cache`
+- Settings: `%APPDATA%\PixMeat`
 
 ### CUDA Runtime
 
-Preferred V1 strategy:
+Future acceleration strategy:
 
 1. Use PyTorch package that bundles compatible CUDA runtime components when installed in the engine environment.
 2. Detect CUDA availability at runtime.
@@ -182,13 +190,11 @@ Future options:
 ```json
 {
   "scripts": {
-    "dev": "pnpm run dev:app",
-    "dev:app": "electron-vite dev",
-    "build": "pnpm run build:renderer && pnpm run build:main",
-    "build:engine:mac": "bash scripts/build-engine.sh",
-    "build:engine:win": "powershell -File scripts/build-engine.ps1",
-    "package:mac": "electron-builder --mac",
-    "package:win": "electron-builder --win"
+    "dev": "electron-vite dev",
+    "build": "tsc --noEmit && electron-vite build",
+    "test": "vitest run && pnpm test:engine",
+    "test:engine": "python -m pytest engine/tests",
+    "dist": "pnpm build && electron-builder"
   }
 }
 ```
@@ -201,7 +207,7 @@ Future options:
 - TypeScript tests pass.
 - Renderer builds.
 - Engine `health` works.
-- MediaPipe model files exist.
+- MediaPipe package assets are bundled or excluded safely.
 - Default presets exist.
 
 ### macOS Build
@@ -211,7 +217,7 @@ Future options:
 - Open image works.
 - Preview works.
 - Export works.
-- MPS/CPU backend status appears.
+- CPU backend status appears; MPS diagnostics appear when available.
 - Cache path works.
 
 ### Windows Build
@@ -221,7 +227,7 @@ Future options:
 - Open image works.
 - Preview works.
 - Export works.
-- CUDA/CPU backend status appears.
+- CPU backend status appears; CUDA/OpenCV CUDA diagnostics appear when available.
 - Cache path works.
 
 ### Visual QA
@@ -261,7 +267,7 @@ Privacy mode redacts full file paths.
 The packaged app should include a simple first-run notice:
 
 ```text
-Beauty Retouch Local processes images on this device.
+PixMeat processes images on this device.
 No cloud processing is used in this version.
 ```
 
@@ -270,8 +276,7 @@ No cloud processing is used in this version.
 - macOS app package verified.
 - Windows app package verified.
 - CPU backend verified on both platforms.
-- CUDA verified on at least one Windows NVIDIA machine.
-- MPS verified on at least one Apple Silicon machine.
+- CUDA diagnostics verified on at least one Windows NVIDIA machine.
+- MPS diagnostics verified on at least one Apple Silicon machine.
 - Export verified for JPEG and PNG.
 - Critical visual QA passed.
-

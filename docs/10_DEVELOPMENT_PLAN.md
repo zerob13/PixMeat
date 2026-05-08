@@ -4,30 +4,27 @@
 
 Build the app in vertical slices. Each milestone should produce a runnable artifact.
 
-Recommended order:
+Current code has completed the first CPU-based vertical slice through preview/export and tests. Remaining work should continue from the status below.
 
-1. Python engine CLI.
-2. CPU image algorithms.
-3. Electron shell and UI.
-4. Engine bridge.
-5. Preview workflow.
-6. Export workflow.
-7. Acceleration backends.
-8. Packaging.
-9. QA and release polish.
+Recommended order from here:
+
+1. Stabilize CPU visual quality and debug tooling.
+2. Add semantic analysis upgrades only when model packaging is planned.
+3. Add backend operation dispatch after CPU correctness is stable.
+4. Package and QA macOS/Windows builds.
 
 ## 2. Milestone Overview
 
 | Milestone | Name | Outcome |
 |---|---|---|
-| M0 | Repository scaffold | Project builds empty Electron app and Python engine health CLI |
-| M1 | Engine CPU prototype | CLI processes one image with landmarks, liquify, smoothing |
-| M2 | UI prototype | Electron opens image, shows canvas, sliders update local state |
-| M3 | Engine bridge | UI calls Python engine and renders preview result |
-| M4 | Complete V1 features | All sliders, presets, compare, export |
-| M5 | Acceleration | CUDA/MPS backend selection and torch operations |
-| M6 | Packaging | macOS and Windows builds |
-| M7 | QA polish | Visual tests, performance, crash recovery, settings |
+| M0 | Repository scaffold | Done |
+| M1 | Engine CPU prototype | Done |
+| M2 | UI prototype | Done |
+| M3 | Engine bridge | Done |
+| M4 | Complete face-retouch V1 features | Mostly done: all current sliders, presets, compare, export |
+| M5 | Acceleration | Partial: device probes/status done, operation dispatch not done |
+| M6 | Packaging | Partial: configs/scripts exist, release validation remains |
+| M7 | QA polish | In progress: unit/integration tests done, golden/manual QA remains |
 
 ## 3. M0 — Repository Scaffold
 
@@ -152,23 +149,24 @@ python -m beauty_engine.cli process input.jpg output.jpg --face-slim 30 --skin-s
 ### Goals
 
 - Implement backend abstraction.
-- Add torch CUDA backend.
-- Add torch MPS backend.
+- Add operation dispatch through backend abstraction.
+- Add torch CUDA operation implementations.
+- Add torch MPS operation implementations.
 - Add operation-level fallback.
 - Add diagnostics UI.
 
 ### Deliverables
 
-- `health` reports available backends.
-- Settings can choose backend.
-- Pipeline can run on CPU/CUDA/MPS where supported.
+- `health` reports available backends. Done.
+- Settings can choose backend preference. Done.
+- Pipeline can run on CPU/CUDA/MPS where supported. Future.
 
 ### Acceptance Criteria
 
 - Windows NVIDIA machine reports CUDA.
 - Apple Silicon machine reports MPS.
 - CPU fallback works on all target machines.
-- Backend failure falls back without crashing app.
+- Backend operation failure falls back without crashing app once operation dispatch exists.
 
 ## 9. M6 — Packaging
 
@@ -229,18 +227,12 @@ This is an ordering guide rather than a calendar commitment.
 
 ### Block 2 — Landmarks and Masks
 
-- Image load.
-- Face landmarks.
-- Face/skin/eye/mouth masks.
-- Debug rendering.
+- Done for current face path.
+- Future: confidence validation, yaw/pitch checks, and stronger detector/parsing model.
 
 ### Block 3 — Core Algorithms
 
-- CPU remap.
-- Face slim.
-- Eye enlarge.
-- Skin smoothing.
-- Brightness.
+- Done with inverse MLS liquify, guided-filter skin retouch, brightness, and debug artifacts.
 
 ### Block 4 — Full Sliders
 
@@ -271,11 +263,8 @@ This is an ordering guide rather than a calendar commitment.
 
 ### Block 7 — Acceleration
 
-- Backend probe.
-- Torch remap.
-- Torch blur.
-- CUDA/MPS selection.
-- Diagnostics.
+- Backend probe and diagnostics are done.
+- Torch/OpenCV CUDA operation implementations are future work.
 
 ### Block 8 — Packaging and QA
 
@@ -291,7 +280,7 @@ This is an ordering guide rather than a calendar commitment.
 |---|---|---|
 | MediaPipe packaging complexity | App packaging delay | Build engine package early |
 | MPS op compatibility varies | Mac acceleration gaps | Per-operation CPU fallback |
-| OpenCV CUDA bundle complexity | Windows acceleration delay | Torch CUDA backend first |
+| OpenCV CUDA bundle complexity | Windows acceleration delay | Keep CPU path stable; add Torch/OpenCV operation backends only after packaging constraints are known |
 | Liquify artifacts | Visual quality issue | Boundary anchors + masks + debug grid |
 | Skin mask roughness | Plastic or smeared result | Conservative masks + feature exclusions |
 | Out-of-order preview responses | UI flicker | Request token latest-wins policy |
@@ -317,4 +306,3 @@ Release candidate is ready when:
 4. Export cancellation works.
 5. App cache cleanup works.
 6. No critical visual artifacts in test portraits.
-

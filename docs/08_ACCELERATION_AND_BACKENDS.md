@@ -2,50 +2,43 @@
 
 ## 1. Goal
 
-Provide one processing interface with multiple implementations:
+Provide one processing interface with multiple implementations. Current code has a CPU implementation plus CUDA/MPS/OpenCV CUDA availability probes; GPU operation dispatch remains future work.
 
 1. CPU baseline for correctness and universal support.
-2. CUDA acceleration for Windows machines with compatible NVIDIA GPUs.
-3. MPS/Metal acceleration for macOS Apple Silicon where operations are supported.
-4. Operation-level fallback when a backend lacks an operation.
+2. CUDA diagnostics now, CUDA acceleration later for Windows machines with compatible NVIDIA GPUs.
+3. MPS/Metal diagnostics now, acceleration later for macOS Apple Silicon where operations are supported.
+4. Operation-level fallback when accelerated implementations are added.
 
 ## 2. Backend Types
 
 | Backend | Platform | Implementation |
 |---|---|---|
 | `cpu` | macOS + Windows | NumPy + OpenCV |
-| `torch_cuda` | Windows + NVIDIA | PyTorch tensors on `cuda` |
-| `torch_mps` | macOS Apple Silicon | PyTorch tensors on `mps` |
-| `opencv_cuda` | Windows + NVIDIA | OpenCV CUDA module, optional custom build |
+| `cuda` | Windows + NVIDIA | Availability probe through PyTorch |
+| `mps` | macOS Apple Silicon | Availability probe through PyTorch |
+| `opencv_cuda` | Windows + NVIDIA | Availability probe through OpenCV CUDA |
 
 ## 3. Backend Selection
 
 ### Auto Selection Algorithm
 
 ```python
-def select_backend(preference: str, platform: str) -> Backend:
-    if preference == "cpu":
-        return CpuBackend()
+def choose_backend(preference: str, available: list[str]) -> str:
+    if preference != "auto" and preference in available:
+        return preference
 
-    if preference == "cuda" and TorchCudaBackend.is_available():
-        return TorchCudaBackend()
-
-    if preference == "mps" and TorchMpsBackend.is_available():
-        return TorchMpsBackend()
-
-    if preference == "opencv_cuda" and OpenCvCudaBackend.is_available():
-        return OpenCvCudaBackend()
-
-    if preference == "auto":
-        if platform == "win32" and TorchCudaBackend.is_available():
-            return TorchCudaBackend()
-        if platform == "win32" and OpenCvCudaBackend.is_available():
-            return OpenCvCudaBackend()
-        if platform == "darwin" and TorchMpsBackend.is_available():
-            return TorchMpsBackend()
-
-    return CpuBackend()
+    if sys.platform == "win32":
+        for candidate in ("cuda", "opencv_cuda", "cpu"):
+            if candidate in available:
+                return candidate
+    if sys.platform == "darwin":
+        for candidate in ("mps", "cpu"):
+            if candidate in available:
+                return candidate
+    return "cpu"
 ```
+
+The selected backend is currently reported in `health` and UI status. The processing pipeline still calls CPU OpenCV/NumPy operations.
 
 ## 4. Runtime Probes
 
@@ -79,15 +72,15 @@ Each operation declares backend support.
 
 | Operation | CPU | Torch CUDA | Torch MPS | OpenCV CUDA |
 |---|---|---|---|---|
-| remap / warp | Yes | Target | Target when supported | Target |
-| gaussian blur | Yes | Target | Target | Target |
-| bilateral-like smoothing | Yes | Approximate | Approximate | Optional |
+| remap / warp | Yes | Future | Future | Future |
+| gaussian blur | Yes | Future | Future | Future |
+| guided skin filtering | Yes | Future | Future | Future |
 | alpha blend | Yes | Yes | Yes | Yes |
 | Lab color conversion | Yes | Optional | Optional | CPU fallback |
 | mask creation | Yes | Optional | Optional | CPU fallback |
 | landmark detection | CPU | Optional future | Optional future | CPU |
 
-## 6. Torch Backend Design
+## 6. Torch Backend Future Design
 
 ### Tensor Layout
 
@@ -143,7 +136,7 @@ except Exception as exc:
     return cpu_operation(...)
 ```
 
-## 7. OpenCV CUDA Backend Design
+## 7. OpenCV CUDA Future Design
 
 OpenCV CUDA can accelerate remap and filtering when the app bundles a CUDA-enabled OpenCV build.
 
@@ -195,6 +188,14 @@ result = cv2.bilateralFilter(image, d=diameter, sigmaColor=sigma_color, sigmaSpa
 
 ## 9. Backend Fallback Rules
 
+Current behavior:
+
+1. Health probes report available devices.
+2. The preferred backend is stored by the engine API.
+3. Processing remains CPU.
+
+Future behavior:
+
 1. Engine chooses active backend at startup.
 2. Each operation asks backend for implementation.
 3. When operation is unsupported, use CPU implementation.
@@ -237,24 +238,26 @@ Engine should expose diagnostics:
 
 ```json
 {
-  "active_backend": "torch_cuda",
-  "fallbacks": ["lab_color_conversion:cpu"],
-  "torch": {
-    "cuda_available": true,
-    "mps_available": false,
-    "device_name": "NVIDIA ..."
-  },
-  "opencv": {
-    "cuda_device_count": 1
-  }
+  "status": "ready",
+  "version": "0.1.0",
+  "platform": "win32",
+  "python_version": "3.14.3",
+  "available_backends": ["cpu"],
+  "active_backend": "cpu",
+  "devices": [
+    {"type": "cpu", "name": "CPU", "available": true},
+    {"type": "cuda", "name": "CUDA", "available": false},
+    {"type": "mps", "name": "Apple GPU", "available": false},
+    {"type": "opencv_cuda", "name": "OpenCV CUDA", "available": false}
+  ]
 }
 ```
 
 ## 13. Implementation Priority
 
 1. CPU backend with correct results.
-2. Torch backend for remap and simple filters.
-3. MPS/CUDA runtime selection.
+2. Backend operation dispatch for remap and simple filters.
+3. Torch CUDA/MPS implementations.
 4. OpenCV CUDA optional path.
 5. Native CUDA/Metal kernels after UX and quality are stable.
 
@@ -285,4 +288,3 @@ A future native CUDA backend can implement:
 - Alpha blending.
 
 Expose it through a Python extension and implement the same `ImageBackend` contract.
-

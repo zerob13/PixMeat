@@ -36,10 +36,10 @@ def detect_faces(image: np.ndarray, allow_heuristic: bool = True) -> list[FaceLa
     faces = _detect_mediapipe(image)
     if faces:
         return faces
-    faces = _detect_skin_regions(image)
+    faces = _detect_haar(image)
     if faces:
         return faces
-    faces = _detect_haar(image)
+    faces = _detect_skin_regions(image)
     if faces:
         return faces
     if allow_heuristic:
@@ -87,7 +87,7 @@ def _detect_mediapipe(image: np.ndarray) -> list[FaceLandmarks]:
         points = np.array([[lm.x, lm.y, lm.z] for lm in landmarks.landmark], dtype=np.float32)
         x_min, y_min = np.min(points[:, :2], axis=0)
         x_max, y_max = np.max(points[:, :2], axis=0)
-        bbox = _clamp_bbox(
+        bbox = _expand_face_bbox(
             (x_min * width, y_min * height, (x_max - x_min) * width, (y_max - y_min) * height),
             width,
             height,
@@ -147,10 +147,17 @@ def _detect_haar(image: np.ndarray) -> list[FaceLandmarks]:
     faces: list[FaceLandmarks] = []
     height, width = image.shape[:2]
     skin = _skin_mask(image)
-    for index, (x, y, w, h) in enumerate(sorted(detections, key=lambda item: item[2] * item[3], reverse=True), start=1):
-        pad_x = int(w * 0.14)
-        pad_y = int(h * 0.18)
-        bbox = _clamp_bbox((x - pad_x, y - pad_y, w + pad_x * 2, h + pad_y * 2), width, height)
+    scored: list[tuple[float, tuple[int, int, int, int]]] = []
+    for detection in detections:
+        x, y, w, h = [int(value) for value in detection]
+        center_y = (y + h * 0.5) / height
+        center_x = (x + w * 0.5) / width
+        center_bias = 1.0 - min(0.55, abs(center_x - 0.5)) * 0.35
+        upper_bias = 1.18 - min(0.70, center_y) * 0.30
+        scored.append((float(w * h) * center_bias * upper_bias, (x, y, w, h)))
+
+    for index, (_score, (x, y, w, h)) in enumerate(sorted(scored, key=lambda item: item[0], reverse=True), start=1):
+        bbox = _expand_face_bbox((x, y, w, h), width, height)
         if _skin_coverage(skin, bbox) < 0.16:
             continue
         faces.append(FaceLandmarks(f"face_{index}", bbox, _synthetic_landmarks(bbox, width, height), 0.72))
@@ -247,6 +254,16 @@ def _expand_bbox(
     pad_x = w * 0.10
     top_pad = h * 0.18
     bottom_pad = h * 0.10
+    return _clamp_bbox((x - pad_x, y - top_pad, w + pad_x * 2, h + top_pad + bottom_pad), width, height)
+
+
+def _expand_face_bbox(
+    bbox: tuple[float, float, float, float], width: int, height: int
+) -> tuple[float, float, float, float]:
+    x, y, w, h = bbox
+    pad_x = w * 0.28
+    top_pad = h * 0.36
+    bottom_pad = h * 0.24
     return _clamp_bbox((x - pad_x, y - top_pad, w + pad_x * 2, h + top_pad + bottom_pad), width, height)
 
 

@@ -104,12 +104,16 @@ def run_debug_masks(input_path: str, debug_dir: str) -> None:
         "landmarks": output / "landmarks.png",
         "face_mask": output / "face_mask.png",
         "skin_mask": output / "skin_mask.png",
+        "refined_skin_mask": output / "refined_skin_mask.png",
         "eye_mask": output / "eye_mask.png",
         "mouth_mask": output / "mouth_mask.png",
     }
     draw_landmarks(image.rgb, faces[0], paths["landmarks"])
     write_mask(paths["face_mask"], masks.face)
     write_mask(paths["skin_mask"], masks.skin)
+    from .smoothing import refined_skin_mask
+
+    write_mask(paths["refined_skin_mask"], refined_skin_mask(image.rgb, masks))
     write_mask(paths["eye_mask"], masks.eyes)
     write_mask(paths["mouth_mask"], masks.mouth)
     print(json.dumps({"ok": True, "paths": {key: str(value) for key, value in paths.items()}}, indent=2))

@@ -44,7 +44,7 @@ def process_image(
     result = apply_liquify(image, active_face, masks, params.liquify, debug_dir=debug_dir)
 
     progress(0.55, "skin")
-    result = apply_skin(result, masks, params.skin)
+    result = apply_skin(result, masks, params.skin, debug_dir=str(debug_dir) if debug_dir else None)
 
     progress(0.78, "beauty")
     result = apply_beauty(result, masks, params.beauty)

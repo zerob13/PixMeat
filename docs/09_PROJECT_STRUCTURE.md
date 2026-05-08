@@ -3,7 +3,7 @@
 ## 1. Repository Layout
 
 ```text
-beauty-retouch-local/
+PixMeat/
 ├─ package.json
 ├─ pnpm-lock.yaml
 ├─ electron-builder.yml
@@ -49,12 +49,10 @@ beauty-retouch-local/
 │     │  │  └─ ui.ts
 │     │  ├─ utils/
 │     │  │  ├─ debounce.ts
-│     │  │  ├─ imagePaths.ts
 │     │  │  └─ valueMapping.ts
 │     │  └─ styles/
 │     │     └─ app.css
 │     │
-│     └─ vite.config.ts
 │
 ├─ engine/
 │  ├─ pyproject.toml
@@ -83,30 +81,32 @@ beauty-retouch-local/
 │  │  │  └─ opencv_cuda.py
 │  │  ├─ diagnostics.py
 │  │  ├─ params.py
-│  │  ├─ presets.py
 │  │  └─ errors.py
 │  │
-│  ├─ models/
-│  │  └─ README.md
-│  │
 │  └─ tests/
+│     ├─ conftest.py
+│     ├─ test_api_e2e.py
+│     ├─ test_beauty.py
+│     ├─ test_demo_e2e.py
+│     ├─ test_io.py
 │     ├─ test_params.py
 │     ├─ test_masks.py
 │     ├─ test_liquify.py
 │     ├─ test_pipeline.py
-│     └─ fixtures/
+│     ├─ test_smoothing.py
+│     └─ test_warp.py
 │
 ├─ scripts/
-│  ├─ dev-start.ts
 │  ├─ build-engine.sh
-│  ├─ build-engine.ps1
-│  ├─ package-mac.sh
-│  └─ package-win.ps1
+│  └─ build-engine.ps1
+│
+├─ demo/
+│  ├─ before.jpg
+│  └─ after.jpg
 │
 ├─ docs/
-│  └─ copied-docs-from-this-pack/
 │
-└─ release/
+└─ release*/
 ```
 
 ## 2. Electron Main Modules
@@ -233,10 +233,10 @@ Responsibilities:
 
 ### `face.py`
 
-- MediaPipe model initialization.
-- Face detection.
+- MediaPipe Face Mesh detection when available.
+- Haar, skin-region, and heuristic fallback detection.
 - Landmark conversion.
-- Face bbox calculation.
+- Face bbox expansion and synthetic landmark fallback.
 
 ### `landmark_indices.py`
 
@@ -253,20 +253,21 @@ Responsibilities:
 ### `liquify.py`
 
 - Parameter mapping.
-- Control point generation.
-- Dense flow generation.
-- Piecewise affine fallback.
+- Control handle generation.
+- Inverse MLS dense warp generation.
+- Foldover guard.
+- Debug output for handles, warp grid, liquify mask, and heatmap.
 
 ### `warp.py`
 
 - CPU remap.
-- Torch grid remap.
-- OpenCV CUDA remap wrapper.
+- MLS similarity map generation.
+- Jacobian determinant utilities.
 
 ### `smoothing.py`
 
-- Skin smoothing.
-- Frequency separation.
+- Refined skin mask.
+- Guided-filter base/detail smoothing.
 - Blemish soften.
 - Tone even.
 
@@ -294,11 +295,11 @@ Responsibilities:
 
 ### `backends/torch_backend.py`
 
-- CUDA/MPS torch implementation.
+- CUDA/MPS availability probe.
 
 ### `backends/opencv_cuda.py`
 
-- Optional OpenCV CUDA implementation.
+- OpenCV CUDA availability probe.
 
 ## 5. Type Boundaries
 
@@ -400,7 +401,8 @@ pnpm build
 ```bash
 cd engine
 python -m venv .venv
-source .venv/bin/activate
+# Windows: .venv\Scripts\activate
+# macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 python -m beauty_engine.cli health
 python -m pytest
@@ -427,8 +429,8 @@ Actual PyInstaller spec should be customized after dependency verification.
 ### Dev Mode
 
 ```text
-engine/models/
 app/renderer/assets/
+demo/
 ```
 
 ### Packaged Mode
@@ -437,8 +439,9 @@ app/renderer/assets/
 resources/
   engine/
     beauty-engine.exe or beauty-engine
-    models/
 ```
+
+No `engine/models/` directory exists in the current repository. Add one only when future model-backed detectors/parsers require project-owned model files.
 
 ## 11. Cache Locations
 
@@ -446,8 +449,8 @@ Use OS app data directories.
 
 | Platform | Cache Root |
 |---|---|
-| macOS | `~/Library/Caches/Beauty Retouch Local` |
-| Windows | `%LOCALAPPDATA%/Beauty Retouch Local/Cache` |
+| macOS | `~/Library/Caches/PixMeat` |
+| Windows | `%LOCALAPPDATA%/PixMeat/Cache` |
 
 ## 12. Source Control Ignore
 
@@ -464,4 +467,3 @@ engine/__pycache__/
 *.pyc
 .DS_Store
 ```
-

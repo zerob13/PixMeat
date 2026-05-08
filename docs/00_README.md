@@ -1,4 +1,4 @@
-# Beauty Retouch Local — Documentation Pack
+# PixMeat — Documentation Pack
 
 ## Project Summary
 
@@ -8,11 +8,24 @@ This project is a cross-platform local portrait retouching desktop application f
 2. Beauty enhancement
 3. Skin smoothing
 
-The application provides PixelCake-like slider controls while keeping processing local. V1 targets macOS and Windows. GPU acceleration is implemented through a backend abstraction:
+The application provides PixelCake-like slider controls while keeping processing local. V1 targets macOS and Windows. The current implementation is CPU-first; CUDA/MPS/OpenCV CUDA are probed and exposed in diagnostics, but the active image-processing pipeline currently runs through NumPy/OpenCV CPU code.
 
-- Windows: CUDA-first when available
-- macOS: Metal/MPS-first when available
-- Both platforms: CPU fallback
+- Windows: CPU processing today, CUDA/OpenCV CUDA probe and future acceleration target
+- macOS: CPU processing today, MPS probe and future acceleration target
+- Both platforms: CPU fallback remains mandatory
+
+## Current Implementation Snapshot
+
+As of the current codebase:
+
+1. Electron + React UI opens images, shows preview, sliders, presets, compare modes, settings, and export flow.
+2. Python engine exposes stdio JSON-RPC plus CLI commands for `health`, `process`, and `debug-masks`.
+3. Supported image IO uses Pillow with EXIF transpose and RGB float32 processing.
+4. Face analysis tries MediaPipe Face Mesh, then Haar detection, then skin/heuristic fallback. Haar boxes are expanded for safer face-local edits.
+5. Liquify uses parameterized face handles, boundary anchors, inverse MLS dense warp maps, OpenCV `remap`, single-pass blending, and foldover debug output.
+6. Skin retouch uses a refined skin mask, guided filtering, base/detail reconstruction, conservative blemish softening, and Lab tone evening.
+7. Debug artifacts include landmarks, face mask, initial skin mask, refined skin mask, eye mask, mouth mask, warp grid, control handles, liquify mask, and foldover heatmap.
+8. Test coverage currently includes renderer state/components plus engine params, IO, masks, warp, liquify, smoothing, beauty, pipeline, API, and demo E2E tests.
 
 ## V1 Product Positioning
 
@@ -25,7 +38,7 @@ A lightweight local portrait retouching tool for photographers, creators, and sm
 | macOS Apple Silicon | Supported |
 | macOS Intel | Supported through CPU fallback |
 | Windows x64 | Supported |
-| Windows + NVIDIA GPU | CUDA acceleration target |
+| Windows + NVIDIA GPU | CPU processing today; CUDA diagnostics and future acceleration target |
 | Linux | Later version |
 | Photoshop plugin | Later version |
 | RAW workflow | Later version |
@@ -38,9 +51,9 @@ A lightweight local portrait retouching tool for photographers, creators, and sm
 | Desktop shell | Electron |
 | UI | React + TypeScript |
 | Local engine | Python |
-| Image processing | OpenCV + NumPy + PyTorch tensor backend |
-| Face landmarks | MediaPipe Face Landmarker / Face Mesh |
-| GPU acceleration | CUDA on Windows, MPS/Metal on macOS |
+| Image processing | OpenCV + NumPy CPU pipeline |
+| Face landmarks | MediaPipe Face Mesh when available, Haar/skin/heuristic fallback |
+| GPU acceleration | CUDA/MPS/OpenCV CUDA diagnostics only; processing acceleration is future work |
 | Packaging | electron-builder + bundled Python engine |
 
 ## Documentation Index
@@ -60,7 +73,6 @@ A lightweight local portrait retouching tool for photographers, creators, and sm
 | `11_TASK_BREAKDOWN.md` | Codex-ready task list with acceptance criteria |
 | `12_TEST_PLAN.md` | Unit, integration, visual, performance tests |
 | `13_PACKAGING_RELEASE.md` | macOS/Windows packaging and release requirements |
-| `14_CODEX_BOOTSTRAP_PROMPT.md` | Prompt for Codex to start implementation |
 | `15_REFERENCES.md` | Official references and source links |
 | `AGENTS.md` | Coding rules for Codex/agents |
 
@@ -76,7 +88,7 @@ The V1 build is acceptable when all of the following are true:
 6. User can compare before/after using split view and toggle view.
 7. User can export a full-resolution result.
 8. App runs on macOS and Windows.
-9. App automatically selects CUDA, MPS, or CPU backend according to availability.
+9. App reports CUDA, MPS, OpenCV CUDA, and CPU availability; current processing remains CPU unless a future backend implements the operation.
 10. Processing remains fully local.
 
 ## Recommended First Implementation Path
@@ -85,6 +97,5 @@ The V1 build is acceptable when all of the following are true:
 2. Implement CPU algorithms first.
 3. Add Electron UI and local process bridge.
 4. Add preview cache and debounced slider rendering.
-5. Add torch tensor backend for CUDA/MPS.
+5. Add torch/OpenCV CUDA operation implementations behind the backend interface.
 6. Add packaging for macOS and Windows.
-

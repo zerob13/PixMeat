@@ -7,14 +7,14 @@
 1. On launch, the app shows an empty editor state.
 2. The app starts the local Python engine in the background.
 3. The app calls `health` on the engine.
-4. The app displays the selected acceleration backend in the status bar.
+4. The app displays engine/backend diagnostics in the status bar.
 5. The user can open an image through button, menu, or drag-and-drop.
 
 ### Empty State UI
 
 ```text
 ┌──────────────────────────────────────────────────────────┐
-│ Beauty Retouch Local                                    │
+│ PixMeat                                                 │
 ├──────────────────────────────────────────────────────────┤
 │                                                          │
 │                  Drop a portrait image                   │
@@ -132,7 +132,8 @@
 - Positive values move cheek and jaw contour points toward the vertical face center line.
 - Movement strength depends on face width.
 - Upper cheek movement is milder than lower cheek movement.
-- Boundary anchors protect ears, hair, neck, and background.
+- Image and face boundary anchors protect ears, hair, neck, and background.
+- Current implementation builds source/target handles and solves one inverse MLS dense map before a single OpenCV remap.
 
 #### Visual Expectation
 
@@ -191,7 +192,7 @@
 #### Behavior
 
 - Both eyes enlarge around their respective centers.
-- Upper/lower eyelid points and eye corner points are transformed radially.
+- Upper/lower eyelid points and eye corner points are transformed through target handles.
 - Eyebrows remain mostly stable.
 - Iris and eye white follow the local warp.
 
@@ -250,8 +251,9 @@
 
 - Smooths low-frequency skin color and tone.
 - Preserves high-frequency detail according to `texture_keep`.
-- Applies only to skin mask.
+- Applies through a refined skin mask built from the face skin mask plus conservative skin-color expansion.
 - Excludes eyes, eyebrows, lips, nostrils, teeth, and hair approximation.
+- Current implementation uses guided filtering, base/detail reconstruction, edge protection, and texture restoration.
 
 #### Acceptance Criteria
 
@@ -284,15 +286,15 @@
 
 #### Behavior
 
-- Detects small high-contrast spots within skin mask.
-- Applies local spot softening or inpaint-like blending.
+- Detects small high-contrast, red, or dark spots within the refined skin mask.
+- Applies local median-blend spot softening.
 - Ignores moles and strong facial features when confidence is low.
 
 #### V1 Implementation
 
-- Implement conservative local smoothing around detected red/dark spots.
-- Keep spot radius small.
-- Add debug mask output in developer mode.
+- Implemented as conservative local smoothing around detected red/dark/high-contrast spots.
+- Spot strength is feathered and bounded by the refined skin mask.
+- Refined skin mask debug output is available in developer mode.
 
 #### Acceptance Criteria
 
@@ -310,7 +312,7 @@
 
 - Operates in Lab or HSV color space.
 - Smooths skin chroma variation while preserving luminance detail.
-- Uses skin mask and edge-aware blending.
+- Uses refined skin mask and edge-aware blending.
 
 #### Acceptance Criteria
 
@@ -328,7 +330,7 @@
 #### Behavior
 
 - Applies mild brightness adjustment to portrait/skin region.
-- Uses soft curve rather than simple linear clipping.
+- Uses a soft curve with shadow protection for positive brightness.
 - Protects highlights with rolloff.
 
 #### Acceptance Criteria
@@ -462,7 +464,7 @@
 
 | Setting | Default | Behavior |
 |---|---|---|
-| Preferred backend | Auto | Auto/CUDA/MPS/CPU |
+| Preferred backend | Auto | Auto/CUDA/MPS/OpenCV CUDA/CPU diagnostics; CPU processing in current build |
 | Preview max side | 1600 | 800/1200/1600/2000 |
 | Show face boxes | On | Toggle overlay |
 | Cache size limit | 2 GB | Clear old cache |
@@ -473,4 +475,3 @@
 - Settings persist across restarts.
 - Backend preference triggers engine re-check.
 - Cache can be cleared manually.
-

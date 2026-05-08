@@ -2,13 +2,24 @@
 
 ## 1. Product Name
 
-Working name: **Beauty Retouch Local**
+Working name: **PixMeat**
 
 ## 2. Product Goal
 
 Build a minimal local portrait retouching desktop app with PixelCake-like slider-based controls for liquify, beauty enhancement, and skin smoothing.
 
 The app focuses on fast, natural, controllable portrait edits. It avoids a large photo-editing feature set and concentrates on high-quality local processing.
+
+## Current Implementation Status
+
+The current repository implements the V1 face-retouching path on the CPU backend:
+
+- Open/load/preview/export flows are wired through Electron and the Python engine.
+- Face edits are active-face only.
+- Liquify uses inverse MLS dense warp with control handles and foldover diagnostics.
+- Skin retouch uses refined skin masks, guided filtering, texture restoration, blemish softening, and Lab tone evening.
+- CUDA, MPS, and OpenCV CUDA are health/diagnostic probes only; they are not yet used by the processing pipeline.
+- Body reshape, human parsing, pose analysis, RAW, batch, plugins, and cloud processing remain future work.
 
 ## 3. V1 Target Users
 
@@ -44,7 +55,7 @@ A technically comfortable user who wants a local alternative to cloud-based reto
 | Beauty | Brightness, eye brighten, teeth whiten, mild contrast |
 | Presets | Built-in presets, save user preset, reset |
 | Performance | Preview cache, full-resolution export |
-| Backends | CPU, CUDA where available, MPS/Metal where available |
+| Backends | CPU processing, CUDA/MPS/OpenCV CUDA diagnostics and future acceleration targets |
 | Packaging | macOS app, Windows installer/portable build |
 
 ### Later Versions
@@ -65,13 +76,15 @@ A technically comfortable user who wants a local alternative to cloud-based reto
 
 - Support Apple Silicon Macs.
 - Support Intel Macs through CPU fallback.
-- Use MPS/Metal acceleration when the backend confirms availability.
+- Use CPU processing in the current version.
+- Use MPS/Metal acceleration after operation implementations are added and the backend confirms availability.
 - Ship as a `.dmg` or `.zip` app bundle.
 
 ### Windows
 
 - Support Windows x64.
-- Use CUDA acceleration when NVIDIA GPU and CUDA-compatible runtime are available.
+- Use CPU processing in the current version.
+- Use CUDA acceleration after operation implementations are added and NVIDIA/CUDA runtime is available.
 - Ship as `.exe` installer and optional portable build.
 
 ## 7. Local Processing Requirement
@@ -86,7 +99,7 @@ All image analysis and image transformation run on the user's machine. V1 stores
 |---|---|
 | JPG/JPEG | Supported |
 | PNG | Supported |
-| WebP | Supported when Pillow/imageio supports it in bundled runtime |
+| WebP | Supported when Pillow supports it in bundled runtime |
 | TIFF | Supported basic 8-bit/16-bit paths where libraries allow |
 | RAW | Later version |
 | PSD | Later version |
@@ -194,7 +207,7 @@ The application should prioritize responsiveness over full-resolution instant re
 - All V1 sliders produce visible, stable, reversible edits.
 - Exported result matches the final preview at equivalent resolution.
 - App launches on macOS and Windows.
-- Backend selection works across CPU/CUDA/MPS scenarios.
+- Backend diagnostics work across CPU/CUDA/MPS/OpenCV CUDA scenarios.
 
 ### UX
 
@@ -207,4 +220,3 @@ The application should prioritize responsiveness over full-resolution instant re
 - Engine can be tested independently through CLI.
 - UI can be tested with mocked engine responses.
 - Golden-image regression tests cover each algorithm group.
-

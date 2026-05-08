@@ -45,5 +45,5 @@ def make_portrait(width: int = 220, height: int = 280) -> np.ndarray:
 
 @pytest.fixture()
 def demo_image_path() -> Path | None:
-    path = Path(__file__).resolve().parents[2] / "demo" / "3M2A3568-Editsmall.jpg"
+    path = Path(__file__).resolve().parents[2] / "demo" / "before.jpg"
     return path if path.exists() else None

@@ -23,7 +23,11 @@ def apply_beauty(image: np.ndarray, masks: RegionMasks | None, params: BeautyPar
 
 def adjust_brightness(image: np.ndarray, amount: float) -> np.ndarray:
     if amount >= 0:
-        return np.clip(image + (1.0 - image) * amount * 0.35, 0, 1)
+        luma = image[:, :, 0] * 0.299 + image[:, :, 1] * 0.587 + image[:, :, 2] * 0.114
+        shadow_protect = np.clip((luma - 0.08) / 0.42, 0, 1)
+        shadow_protect = shadow_protect * shadow_protect * (3.0 - 2.0 * shadow_protect)
+        lift = amount * 0.42 * shadow_protect[..., None]
+        return np.clip(image + (1.0 - image) * lift, 0, 1)
     return np.clip(image * (1.0 + amount * 0.35), 0, 1)
 
 

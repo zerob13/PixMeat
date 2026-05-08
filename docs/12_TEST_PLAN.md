@@ -12,7 +12,7 @@
 
 | Category | Scope |
 |---|---|
-| Unit tests | Params, masks, algorithms, backend probes |
+| Unit tests | Params, masks, warp/MLS, liquify, smoothing, beauty, IO |
 | Integration tests | Engine API and pipeline |
 | Visual regression tests | Golden image comparisons |
 | UI tests | Renderer state and interaction |
@@ -58,7 +58,8 @@ Cases:
 - Identity warp returns original within tolerance.
 - Translation warp moves content.
 - Masked blend affects only mask region.
-- CPU and torch backend shapes match.
+- MLS identity maps are stable.
+- MLS inverse translation maps target pixels back to source coordinates.
 
 ### `test_liquify.py`
 
@@ -69,6 +70,7 @@ Cases:
 - Eye enlarge changes eye region.
 - Strong params remain within output bounds.
 - Multi-face active face selection affects expected region.
+- Protected regions change less than editable cheek/jaw regions.
 
 ### `test_smoothing.py`
 
@@ -78,6 +80,7 @@ Cases:
 - Smooth high reduces local variance in skin mask.
 - Texture keep high preserves high-frequency detail.
 - Protected regions remain stable.
+- Strong edges remain protected during smoothing.
 
 ### `test_beauty.py`
 
@@ -88,14 +91,13 @@ Cases:
 - Eye bright affects eye candidate region.
 - Teeth white affects teeth candidate region when present.
 
-### `test_backend.py`
+### Backend Probe Coverage
 
-Cases:
+Current backend probes are covered through health/API tests rather than a dedicated `test_backend.py`.
 
-- CPU backend is always available.
-- CUDA probe handles missing torch/cuda safely.
-- MPS probe handles unsupported platform safely.
-- Operation fallback calls CPU when backend op fails.
+- CPU backend is always available in `health`.
+- CUDA, MPS, and OpenCV CUDA missing-device cases return unavailable instead of failing.
+- Operation fallback tests should be added when backend operation dispatch exists.
 
 ## 4. Engine API Integration Tests
 
@@ -178,6 +180,8 @@ Use a combination:
 - Human review for visual quality.
 
 GPU outputs may differ slightly from CPU. Use looser tolerance for CUDA/MPS tests.
+
+Current golden-image tests are not yet committed. The demo E2E test uses `demo/before.jpg` as a local anchor and verifies that the primary portrait face is selected and the pipeline produces output/debug artifacts.
 
 ## 6. UI Tests
 
@@ -330,4 +334,3 @@ Benchmark outputs should be saved as JSON:
 - UI remains responsive during preview/export.
 - Preview uses debounced rendering.
 - Export shows progress.
-

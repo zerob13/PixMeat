@@ -13,7 +13,7 @@
 
 ```text
 ┌───────────────────────────────────────────────────────────────────────┐
-│ Beauty Retouch Local                                      macOS/Win   │
+│ PixMeat                                                   macOS/Win   │
 ├───────────────────────────────────────────────────────────────────────┤
 │ File  Edit  View  Presets  Help                                      │
 ├───────────────┬───────────────────────────────────────┬───────────────┤
@@ -42,7 +42,7 @@
 │               │                                       │  Teeth White  │
 │               │                                       │  Contrast     │
 ├───────────────┴───────────────────────────────────────┴───────────────┤
-│ Engine: Ready · Backend: CUDA/MPS/CPU · Preview: 1600px · Dirty       │
+│ Engine: Ready · Backend: CPU · Preview: 1600px · Dirty                │
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -243,7 +243,7 @@ Presets ▼
 ┌─────────────────────────────────────────────┐
 │ Exporting full-resolution image             │
 │ ███████████████░░░░░░░░ 64%                 │
-│ Backend: CUDA                               │
+│ Backend: CPU                                │
 │                                             │
 │                         [Cancel]            │
 └─────────────────────────────────────────────┘
@@ -286,7 +286,7 @@ Presets ▼
 │                                             │
 │ Diagnostics                                 │
 │ Engine status           Ready               │
-│ Active backend          CUDA/MPS/CPU        │
+│ Active backend          CPU/CUDA/MPS/OpenCV │
 │ Python engine version   x.y.z               │
 └─────────────────────────────────────────────┘
 ```
@@ -313,3 +313,6 @@ Presets ▼
 4. Text contrast meets normal desktop expectations.
 5. Numeric slider value is readable and editable.
 
+## 16. Current UI Status
+
+The current app implements the main editor surface, toolbar actions, face selection, slider panel, presets, settings, preview rendering, compare modes, and export path. Advanced debug layer toggles are not yet exposed in the renderer; debug artifacts are generated through engine CLI/API developer paths.

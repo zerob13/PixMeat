@@ -4,6 +4,8 @@
 
 Each task should be implemented as a small vertical change with tests where applicable.
 
+Status note: Epics A-H are largely implemented for the current face-retouch CPU product. Epic I is probe-only. Packaging and deeper QA remain active work. Keep task statuses updated when implementation changes.
+
 Task fields:
 
 - Goal
@@ -263,9 +265,9 @@ engine/beauty_engine/masks.py
 
 ## Epic E — Liquify
 
-### E1. Implement CPU Remap Utility
+### E1. Implement CPU Remap and MLS Utility
 
-**Goal:** Implement dense map remap with OpenCV.
+**Goal:** Implement dense map remap with OpenCV plus inverse MLS map generation.
 
 **Files:**
 
@@ -278,8 +280,10 @@ engine/tests/test_warp.py
 
 - Identity map returns image within tolerance.
 - Simple translation map shifts image as expected.
+- MLS identity maps are stable.
+- MLS inverse translation maps target pixels back to source coordinates.
 
-### E2. Implement Face Slim
+### E2. Implement Face Slim with Handles
 
 **Goal:** Add face slim parameter.
 
@@ -295,6 +299,7 @@ engine/beauty_engine/pipeline.py
 - `face_slim=0` changes nothing.
 - `face_slim=0.3` visibly slims face.
 - Background outside face mask remains stable.
+- Slider target handles are included in a single inverse MLS remap.
 
 ### E3. Implement Eye Enlarge
 
@@ -344,7 +349,7 @@ engine/beauty_engine/liquify.py
 - Mouth corners lift with smile.
 - High values remain bounded.
 
-### E6. Add Liquify Debug Grid
+### E6. Add Liquify Debug Outputs
 
 **Goal:** Visualize warp field.
 
@@ -356,14 +361,14 @@ engine/beauty_engine/debug.py
 
 **Acceptance Criteria:**
 
-- Debug output shows grid before/after.
-- Grid helps identify excessive distortion.
+- Debug output shows warp grid, control handles, liquify mask, and foldover heatmap.
+- Grid and heatmap help identify excessive distortion.
 
 ## Epic F — Skin and Beauty
 
 ### F1. Implement Skin Smoothing
 
-**Goal:** Add skin smoothing with texture keep.
+**Goal:** Add refined-mask guided skin smoothing with texture keep.
 
 **Files:**
 
@@ -375,6 +380,7 @@ engine/tests/test_smoothing.py
 **Acceptance Criteria:**
 
 - Smooth value changes skin region.
+- Refined skin mask is available in debug output.
 - Texture keep controls high-frequency return.
 - Protected regions remain stable.
 
@@ -646,6 +652,8 @@ engine/beauty_engine/diagnostics.py
 
 **Goal:** Add torch tensor operations for remap and blur.
 
+**Current Status:** Only CUDA/MPS availability probes exist in `torch_backend.py`; operation implementations are not done.
+
 **Files:**
 
 ```text
@@ -671,8 +679,9 @@ app/main/settingsStore.ts
 
 **Acceptance Criteria:**
 
-- Auto/CPU/CUDA/MPS options are visible.
-- Health updates active backend.
+- Auto/CPU/CUDA/MPS/OpenCV CUDA options are visible where supported by UI.
+- Health updates active backend diagnostics.
+- Processing remains CPU until backend operation dispatch is implemented.
 
 ## Epic J — Packaging and Release
 
@@ -722,4 +731,3 @@ release-checklist.md
 **Acceptance Criteria:**
 
 - Checklist covers launch, open, sliders, export, backend, settings.
-
