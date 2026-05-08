@@ -123,7 +123,16 @@ def scale_face(face: FaceLandmarks, width: int, height: int) -> FaceLandmarks:
         bbox = (x * width, y * height, w * width, h * height)
     else:
         bbox = (x_min * width, y_min * height, (x_max - x_min) * width, (y_max - y_min) * height)
-    return FaceLandmarks(face.face_id, bbox, points, face.confidence)
+    return FaceLandmarks(face.face_id, clamp_bbox(bbox, width, height), points, face.confidence)
+
+
+def clamp_bbox(bbox: tuple[float, float, float, float], width: int, height: int) -> tuple[float, float, float, float]:
+    x, y, w, h = bbox
+    x1 = float(np.clip(x, 0, max(0, width - 1)))
+    y1 = float(np.clip(y, 0, max(0, height - 1)))
+    x2 = float(np.clip(x + max(1.0, w), x1 + 1.0, width))
+    y2 = float(np.clip(y + max(1.0, h), y1 + 1.0, height))
+    return (x1, y1, x2 - x1, y2 - y1)
 
 
 def read_session_image(session: ImageSession, preview: bool) -> ImageData:

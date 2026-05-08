@@ -83,6 +83,17 @@ export const CanvasViewer = ({
     }
   }, [baseScale, viewCommand])
 
+  useEffect(() => {
+    const element = containerRef.current
+    if (!element || !beforePath) return
+    const handleWheel = (event: WheelEvent): void => {
+      event.preventDefault()
+      setZoom((current) => Math.min(4, Math.max(0.25, current * (event.deltaY > 0 ? 0.92 : 1.08))))
+    }
+    element.addEventListener('wheel', handleWheel, { passive: false })
+    return () => element.removeEventListener('wheel', handleWheel)
+  }, [beforePath])
+
   const display = {
     width: Math.max(1, imageWidth * baseScale * zoom),
     height: Math.max(1, imageHeight * baseScale * zoom)
@@ -94,6 +105,7 @@ export const CanvasViewer = ({
     width: display.width,
     height: display.height
   }
+  const splitPercent = split * 100
 
   const beforeUrl = beforePath ? filePathToUrl(beforePath) : null
   const afterUrl = afterPath ? filePathToUrl(afterPath) : beforeUrl
@@ -139,10 +151,6 @@ export const CanvasViewer = ({
         setPan({ x: drag.panX + event.clientX - drag.x, y: drag.panY + event.clientY - drag.y })
       }}
       onPointerUp={() => setDrag(null)}
-      onWheel={(event) => {
-        event.preventDefault()
-        setZoom((current) => Math.min(4, Math.max(0.25, current * (event.deltaY > 0 ? 0.92 : 1.08))))
-      }}
     >
       <div className="absolute" style={{ left: frameLeft, top: frameTop, ...imageStyle }}>
         {compareMode === 'before' ? (
@@ -168,22 +176,21 @@ export const CanvasViewer = ({
               className="absolute inset-0 h-full w-full select-none object-fill"
               draggable={false}
               src={beforeUrl}
+              style={{ clipPath: `inset(0 ${100 - splitPercent}% 0 0)` }}
               onLoad={handleImageLoad}
             />
-            <div className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: `${split * 100}%` }}>
-              <img
-                alt="After preview"
-                className="h-full select-none object-fill"
-                draggable={false}
-                src={afterUrl ?? beforeUrl}
-                style={imageStyle}
-                onLoad={handleImageLoad}
-              />
-            </div>
+            <img
+              alt="After preview"
+              className="absolute inset-0 h-full w-full select-none object-fill"
+              draggable={false}
+              src={afterUrl ?? beforeUrl}
+              style={{ clipPath: `inset(0 0 0 ${splitPercent}%)` }}
+              onLoad={handleImageLoad}
+            />
             <button
               aria-label="Split divider"
-              className="absolute top-0 h-full w-1 bg-primary"
-              style={{ left: `${split * 100}%` }}
+              className="absolute top-0 h-full w-6 -translate-x-1/2 cursor-ew-resize"
+              style={{ left: `${splitPercent}%` }}
               type="button"
               onPointerDown={(event) => {
                 event.currentTarget.setPointerCapture(event.pointerId)
@@ -194,7 +201,9 @@ export const CanvasViewer = ({
                 if (!rect) return
                 setSplit(Math.min(0.95, Math.max(0.05, (event.clientX - rect.left) / rect.width)))
               }}
-            />
+            >
+              <span className="mx-auto block h-full w-1 bg-primary" />
+            </button>
           </div>
         )}
 

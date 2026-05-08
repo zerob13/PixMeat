@@ -22,13 +22,56 @@ def apply_skin(image: np.ndarray, masks: RegionMasks | None, params: SkinParams)
 
 
 def smooth_skin(image: np.ndarray, skin_mask: np.ndarray, smooth: float, texture_keep: float) -> np.ndarray:
-    if smooth <= 0:
+    amount = float(np.clip(smooth, 0, 1))
+    texture = float(np.clip(texture_keep, 0, 1))
+    if amount <= 0 or not np.any(skin_mask > 0.01):
         return image.copy()
-    low = cv2.bilateralFilter(image.astype(np.float32), 9, sigmaColor=0.08 + smooth * 0.12, sigmaSpace=9)
-    high = image - cv2.GaussianBlur(image.astype(np.float32), (0, 0), sigmaX=1.2 + smooth * 2.0)
-    smooth_low = cv2.GaussianBlur(low, (0, 0), sigmaX=2.0 + smooth * 4.0)
-    reconstructed = np.clip(smooth_low + high * texture_keep, 0, 1)
-    return masked_blend(image, reconstructed, skin_mask * smooth)
+
+    base = edge_preserving_base(image, amount)
+    detail = image.astype(np.float32) - base
+    detail_keep = 0.18 + texture * 0.82
+    reconstructed = np.clip(base + detail * detail_keep, 0, 1)
+    blend_mask = skin_blend_mask(image, skin_mask, amount)
+    return masked_blend(image, reconstructed, blend_mask)
+
+
+def edge_preserving_base(image: np.ndarray, amount: float) -> np.ndarray:
+    image_u8 = np.clip(image * 255.0 + 0.5, 0, 255).astype(np.uint8)
+    sigma_s = 14.0 + amount * 38.0
+    sigma_r = 0.08 + amount * 0.16
+    try:
+        base_u8 = cv2.edgePreservingFilter(image_u8, flags=cv2.RECURS_FILTER, sigma_s=sigma_s, sigma_r=sigma_r)
+    except cv2.error:
+        diameter = 5 if amount < 0.5 else 9
+        base_u8 = cv2.bilateralFilter(
+            image_u8,
+            diameter,
+            sigmaColor=18.0 + amount * 42.0,
+            sigmaSpace=6.0 + amount * 12.0,
+        )
+    return base_u8.astype(np.float32) / 255.0
+
+
+def skin_blend_mask(image: np.ndarray, skin_mask: np.ndarray, amount: float) -> np.ndarray:
+    strong_edges = strong_edge_mask(image, skin_mask)
+    protected = np.clip(1.0 - strong_edges * 0.82, 0, 1)
+    mask = np.clip(skin_mask * protected, 0, 1).astype(np.float32)
+    mask = cv2.GaussianBlur(mask, (0, 0), sigmaX=1.2 + amount * 1.4)
+    return np.clip(mask * min(0.88, amount * 0.92), 0, 1).astype(np.float32)
+
+
+def strong_edge_mask(image: np.ndarray, skin_mask: np.ndarray) -> np.ndarray:
+    gray = cv2.cvtColor(np.clip(image * 255.0 + 0.5, 0, 255).astype(np.uint8), cv2.COLOR_RGB2GRAY).astype(np.float32)
+    gray /= 255.0
+    grad_x = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+    grad_y = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+    magnitude = cv2.magnitude(grad_x, grad_y)
+    skin_values = magnitude[skin_mask > 0.12]
+    threshold = float(np.quantile(skin_values, 0.86)) if skin_values.size else 0.08
+    threshold = max(0.045, threshold)
+    edge = np.clip((magnitude - threshold) / max(threshold * 1.8, 0.001), 0, 1)
+    edge = cv2.dilate(edge, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)))
+    return cv2.GaussianBlur(edge.astype(np.float32), (0, 0), sigmaX=1.0)
 
 
 def even_skin_tone(image: np.ndarray, skin_mask: np.ndarray, amount: float) -> np.ndarray:

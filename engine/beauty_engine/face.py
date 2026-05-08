@@ -36,6 +36,9 @@ def detect_faces(image: np.ndarray, allow_heuristic: bool = True) -> list[FaceLa
     faces = _detect_mediapipe(image)
     if faces:
         return faces
+    faces = _detect_skin_regions(image)
+    if faces:
+        return faces
     faces = _detect_haar(image)
     if faces:
         return faces
@@ -84,8 +87,50 @@ def _detect_mediapipe(image: np.ndarray) -> list[FaceLandmarks]:
         points = np.array([[lm.x, lm.y, lm.z] for lm in landmarks.landmark], dtype=np.float32)
         x_min, y_min = np.min(points[:, :2], axis=0)
         x_max, y_max = np.max(points[:, :2], axis=0)
-        bbox = (x_min * width, y_min * height, (x_max - x_min) * width, (y_max - y_min) * height)
+        bbox = _clamp_bbox(
+            (x_min * width, y_min * height, (x_max - x_min) * width, (y_max - y_min) * height),
+            width,
+            height,
+        )
         faces.append(FaceLandmarks(f"face_{index}", bbox, np.clip(points, -1, 2), 0.98))
+    return faces
+
+
+def _detect_skin_regions(image: np.ndarray) -> list[FaceLandmarks]:
+    height, width = image.shape[:2]
+    if height < 96 or width < 96 or float(np.std(image)) < 0.035:
+        return []
+
+    skin = _skin_mask(image)
+    min_dim = min(width, height)
+    open_size = max(3, _odd(int(min_dim * 0.006)))
+    close_size = max(9, _odd(int(min_dim * 0.022)))
+    skin_u8 = (skin.astype(np.uint8) * 255)
+    skin_u8 = cv2.morphologyEx(skin_u8, cv2.MORPH_OPEN, np.ones((open_size, open_size), np.uint8))
+    skin_u8 = cv2.morphologyEx(skin_u8, cv2.MORPH_CLOSE, np.ones((close_size, close_size), np.uint8))
+
+    count, _labels, stats, _centroids = cv2.connectedComponentsWithStats((skin_u8 > 0).astype(np.uint8), 8)
+    image_area = width * height
+    candidates: list[tuple[float, tuple[float, float, float, float]]] = []
+    for label in range(1, count):
+        x, y, candidate_w, candidate_h, area = [int(value) for value in stats[label]]
+        score = _score_skin_candidate(x, y, candidate_w, candidate_h, area, width, height, image_area)
+        if score <= 0:
+            continue
+        bbox = _expand_bbox((x, y, candidate_w, candidate_h), width, height)
+        candidates.append((score, bbox))
+
+    candidates.sort(key=lambda item: item[0], reverse=True)
+    faces: list[FaceLandmarks] = []
+    for index, (score, bbox) in enumerate(candidates[:3], start=1):
+        faces.append(
+            FaceLandmarks(
+                f"face_{index}",
+                bbox,
+                _synthetic_landmarks(bbox, width, height),
+                min(0.82, 0.54 + score * 0.06),
+            )
+        )
     return faces
 
 
@@ -98,18 +143,16 @@ def _detect_haar(image: np.ndarray) -> list[FaceLandmarks]:
     cascade = cv2.CascadeClassifier(cascade_path)
     if cascade.empty():
         return []
-    detections = cascade.detectMultiScale(gray, scaleFactor=1.08, minNeighbors=4, minSize=(48, 48))
+    detections = cascade.detectMultiScale(gray, scaleFactor=1.08, minNeighbors=6, minSize=(48, 48))
     faces: list[FaceLandmarks] = []
     height, width = image.shape[:2]
+    skin = _skin_mask(image)
     for index, (x, y, w, h) in enumerate(sorted(detections, key=lambda item: item[2] * item[3], reverse=True), start=1):
         pad_x = int(w * 0.14)
         pad_y = int(h * 0.18)
-        bbox = (
-            max(0, x - pad_x),
-            max(0, y - pad_y),
-            min(width - max(0, x - pad_x), w + pad_x * 2),
-            min(height - max(0, y - pad_y), h + pad_y * 2),
-        )
+        bbox = _clamp_bbox((x - pad_x, y - pad_y, w + pad_x * 2, h + pad_y * 2), width, height)
+        if _skin_coverage(skin, bbox) < 0.16:
+            continue
         faces.append(FaceLandmarks(f"face_{index}", bbox, _synthetic_landmarks(bbox, width, height), 0.72))
     return faces
 
@@ -130,8 +173,96 @@ def _detect_heuristic(image: np.ndarray) -> list[FaceLandmarks]:
 
     face_w = width * 0.34
     face_h = min(height * 0.62, face_w * 1.35)
-    bbox = ((width - face_w) / 2, height * 0.18, face_w, face_h)
+    bbox = _clamp_bbox(((width - face_w) / 2, height * 0.18, face_w, face_h), width, height)
     return [FaceLandmarks("face_1", bbox, _synthetic_landmarks(bbox, width, height), 0.45)]
+
+
+def _skin_mask(image: np.ndarray) -> np.ndarray:
+    rgb_u8 = np.clip(image * 255.0 + 0.5, 0, 255).astype(np.uint8)
+    ycrcb = cv2.cvtColor(rgb_u8, cv2.COLOR_RGB2YCrCb)
+    hsv = cv2.cvtColor(rgb_u8, cv2.COLOR_RGB2HSV)
+    cr = ycrcb[:, :, 1]
+    cb = ycrcb[:, :, 2]
+    hue = hsv[:, :, 0]
+    sat = hsv[:, :, 1]
+    val = hsv[:, :, 2]
+    balanced_skin = (cr > 130) & (cr < 175) & (cb > 75) & (cb < 140) & (sat > 18) & (sat < 175) & (val > 50)
+    warm_skin = ((hue < 18) | (hue > 170)) & (sat > 22) & (sat < 165) & (val > 55) & (cr > 120) & (cb < 150)
+    return balanced_skin | warm_skin
+
+
+def _score_skin_candidate(
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+    area: int,
+    image_width: int,
+    image_height: int,
+    image_area: int,
+) -> float:
+    if width <= 0 or height <= 0 or area <= 0:
+        return 0.0
+
+    area_ratio = area / image_area
+    width_ratio = width / image_width
+    height_ratio = height / image_height
+    aspect = width / height
+    fill = area / (width * height)
+    center_y = (y + height * 0.5) / image_height
+
+    if not 0.003 <= area_ratio <= 0.08:
+        return 0.0
+    if not 0.07 <= width_ratio <= 0.36:
+        return 0.0
+    if not 0.08 <= height_ratio <= 0.36:
+        return 0.0
+    if not 0.45 <= aspect <= 1.35:
+        return 0.0
+    if fill < 0.22:
+        return 0.0
+    if center_y > 0.58:
+        return 0.0
+
+    upper_bonus = 1.25 - center_y
+    size_score = min(1.0, area_ratio / 0.018)
+    shape_score = 1.0 - min(abs(aspect - 0.78), 0.55)
+    fill_score = min(1.0, fill / 0.55)
+    return max(0.0, upper_bonus + size_score + shape_score + fill_score)
+
+
+def _skin_coverage(skin: np.ndarray, bbox: tuple[float, float, float, float]) -> float:
+    x, y, w, h = [int(round(value)) for value in bbox]
+    x = max(0, min(skin.shape[1] - 1, x))
+    y = max(0, min(skin.shape[0] - 1, y))
+    x2 = max(x + 1, min(skin.shape[1], x + max(1, w)))
+    y2 = max(y + 1, min(skin.shape[0], y + max(1, h)))
+    return float(np.mean(skin[y:y2, x:x2]))
+
+
+def _expand_bbox(
+    bbox: tuple[float, float, float, float], width: int, height: int
+) -> tuple[float, float, float, float]:
+    x, y, w, h = bbox
+    pad_x = w * 0.10
+    top_pad = h * 0.18
+    bottom_pad = h * 0.10
+    return _clamp_bbox((x - pad_x, y - top_pad, w + pad_x * 2, h + top_pad + bottom_pad), width, height)
+
+
+def _clamp_bbox(
+    bbox: tuple[float, float, float, float], width: int, height: int
+) -> tuple[float, float, float, float]:
+    x, y, w, h = bbox
+    x1 = float(np.clip(x, 0, max(0, width - 1)))
+    y1 = float(np.clip(y, 0, max(0, height - 1)))
+    x2 = float(np.clip(x + max(1.0, w), x1 + 1.0, width))
+    y2 = float(np.clip(y + max(1.0, h), y1 + 1.0, height))
+    return (x1, y1, x2 - x1, y2 - y1)
+
+
+def _odd(value: int) -> int:
+    return value if value % 2 == 1 else value + 1
 
 
 def _synthetic_landmarks(
