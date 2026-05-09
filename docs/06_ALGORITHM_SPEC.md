@@ -1,6 +1,6 @@
 # Algorithm Specification
 
-This document describes the current CPU implementation. Analysis V2 now provides model slots, degraded person masks, coarse human parsing regions, semantic skin masks, and debug overlays. Concrete SCHP/SCRFD/RetinaFace ONNX adapters, pose-driven body reshape, ARAP mesh warp, and GPU operation implementations remain future work unless a local adapter is explicitly configured.
+This document describes the current CPU implementation. Analysis V2 is the default analysis path and provides model slots, degraded person masks, coarse human parsing regions, semantic skin masks, and debug overlays. Concrete SCHP/SCRFD/RetinaFace ONNX adapters, pose-driven body reshape, ARAP mesh warp, and GPU operation implementations remain future work unless a local adapter is explicitly configured.
 
 ## 1. Current Pipeline
 
@@ -9,7 +9,7 @@ RGB float32 image
   ↓
 face detection and landmark selection
   ↓
-Analysis V2 optional person/parsing/skin/body regions, or V1 face/skin/eye/mouth/protected masks
+Analysis V2 person/parsing/skin/body regions, with face-local masks for active-face edits
   ↓
 liquify handles from active face and params
   ↓
@@ -32,7 +32,7 @@ RGB float32 result
 
 ## 2. Face Detection
 
-Analysis V2 is available when `analysis.version` is `v2`. It first checks configured local model slots and then uses the safe classic detector chain. Debug output records the selected face source, bbox, score, landmarks, and quality hints.
+Analysis V2 is enabled by default when `analysis.version` is not overridden. It first checks configured local model slots and then uses the safe classic detector chain. Debug output records the selected face source, bbox, score, landmarks, and quality hints.
 
 `face.py` currently uses this default detector chain:
 
@@ -98,12 +98,12 @@ foldover_heatmap.png
 
 | Slider | Current handle behavior |
 |---|---|
-| `face_slim` | Cheek, jaw, and face oval side points move toward face center with lower-face weighting |
-| `jawline` | Lower jaw points move inward and slightly upward |
+| `face_slim` | Positive values move cheek, jaw, and face oval side points toward face center; negative values move them outward |
+| `jawline` | Positive values move lower jaw points inward/up; negative values move them outward/down |
 | `chin_length` | Chin points move vertically |
-| `eye_enlarge` | Eye landmarks scale outward around each eye center |
-| `nose_slim` | Nose wing and lower bridge points move toward bridge center |
-| `smile` | Mouth corners and supporting lip points move up and slightly outward |
+| `eye_enlarge` | Positive values scale eye landmarks outward around each eye center; negative values scale them inward |
+| `nose_slim` | Positive values move nose wing and lower bridge points toward bridge center; negative values move them outward |
+| `smile` | Positive values move mouth corners up/out; negative values move them down/in |
 
 ## 5. MLS Warp
 
@@ -198,8 +198,8 @@ CPU output should be deterministic for identical input image, parameters, face s
 ## 10. Known Limitations
 
 - Analysis V2 exposes human parsing model slots and coarse fallback regions, but generic SCHP/CIHP/LIP/ATR ONNX decoding is not implemented yet.
-- Body sliders currently use conservative geometric handles; pose-driven body cage, ARAP, and DensePose integration remain future work.
+- Body sliders use bidirectional geometric handles and Analysis V2 person/body masks when available; pose-driven body cage, ARAP, and DensePose integration remain future work.
 - GPU backends are diagnostic probes only.
-- V1 refined skin mask is heuristic and can misclassify skin-colored background. V2 suppresses this with a person mask when enabled.
+- The CPU color skin check is a refinement only; V2 suppresses skin-colored background with a person mask.
 - Face detection is robust enough for the demo path but not equivalent to InsightFace/SCRFD.
 - Landmark confidence and yaw/pitch validation are not yet fully modeled.

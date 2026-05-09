@@ -9,6 +9,7 @@ import numpy as np
 from .debug import draw_handles, write_mask
 from .face import FaceLandmarks
 from .params import BodyParams
+from .types import AnalysisResult, mask_bbox
 from .warp import masked_blend, mls_similarity_maps, remap
 
 
@@ -28,12 +29,13 @@ def apply_body_shape(
     face: FaceLandmarks | None,
     params: BodyParams,
     *,
+    analysis_result: AnalysisResult | None = None,
     debug_dir: str | Path | None = None,
 ) -> np.ndarray:
     if face is None or _is_zero(params):
         return image.copy()
 
-    handles = build_body_handles(image.shape[:2], face, params)
+    handles = build_body_handles(image.shape[:2], face, params, analysis_result=analysis_result)
     if not handles.has_motion:
         return image.copy()
 
@@ -49,20 +51,32 @@ def apply_body_shape(
     return result
 
 
-def build_body_handles(shape: tuple[int, int], face: FaceLandmarks, params: BodyParams) -> BodyHandles:
+def build_body_handles(
+    shape: tuple[int, int],
+    face: FaceLandmarks,
+    params: BodyParams,
+    *,
+    analysis_result: AnalysisResult | None = None,
+) -> BodyHandles:
     height, width = shape
     x, y, face_w, face_h = face.bbox
     face_center_x = x + face_w * 0.5
-    body_center_x = float(np.clip(face_center_x + face_w * 0.18, width * 0.10, width * 0.90))
-    top = float(np.clip(y + face_h * 0.68, 0, height - 1))
-    bottom = float(np.clip(y + face_h * 4.35, top + face_h * 0.75, height - 1))
+    analysis_geometry = _body_geometry_from_analysis(shape, face, analysis_result)
+    if analysis_geometry is None:
+        body_center_x = float(np.clip(face_center_x, width * 0.10, width * 0.90))
+        top = float(np.clip(y + face_h * 0.68, 0, height - 1))
+        bottom = float(np.clip(y + face_h * 4.35, top + face_h * 0.75, height - 1))
+        body_unit = face_w
+        analysis_mask = None
+    else:
+        body_center_x, top, bottom, body_unit, analysis_mask = analysis_geometry
     body_h = bottom - top
     if body_h < max(30.0, face_h * 0.65):
         return BodyHandles(np.empty((0, 2), dtype=np.float32), np.empty((0, 2), dtype=np.float32), np.zeros(shape, dtype=np.float32))
 
-    body_slim = float(np.clip(params.body_slim, 0, 1))
-    waist_slim = float(np.clip(params.waist_slim, 0, 1))
-    arm_slim = float(np.clip(params.arm_slim, 0, 1))
+    body_slim = float(np.clip(params.body_slim, -1, 1))
+    waist_slim = float(np.clip(params.waist_slim, -1, 1))
+    arm_slim = float(np.clip(params.arm_slim, -1, 1))
 
     sources: list[np.ndarray] = []
     targets: list[np.ndarray] = []
@@ -86,14 +100,14 @@ def build_body_handles(shape: tuple[int, int], face: FaceLandmarks, params: Body
     center_sources: list[np.ndarray] = []
     for t in rows:
         y_row = top + body_h * float(t)
-        half_width = _body_half_width(face_w, t)
+        half_width = _body_half_width(body_unit, t)
         waist_weight = float(np.exp(-((float(t) - 0.50) / 0.22) ** 2))
         shoulder_weight = float(np.exp(-((float(t) - 0.12) / 0.22) ** 2))
         arm_weight = max(0.18, shoulder_weight)
         inward = face_w * (
-            body_slim * (0.08 + 0.10 * float(t))
-            + waist_slim * 0.18 * waist_weight
-            + arm_slim * 0.07 * arm_weight
+            body_slim * (0.12 + 0.14 * float(t))
+            + waist_slim * 0.26 * waist_weight
+            + arm_slim * 0.20 * arm_weight
         )
         left = np.array([body_center_x - half_width, y_row], dtype=np.float32)
         right = np.array([body_center_x + half_width, y_row], dtype=np.float32)
@@ -109,16 +123,91 @@ def build_body_handles(shape: tuple[int, int], face: FaceLandmarks, params: Body
     add_move(np.asarray(side_sources, dtype=np.float32), np.asarray(side_targets, dtype=np.float32))
     add_fixed(np.asarray(center_sources, dtype=np.float32))
 
-    if arm_slim > 0:
-        arm_sources, arm_targets = _arm_handles(body_center_x, top, bottom, face_w, arm_slim)
+    if arm_slim != 0:
+        arm_sources, arm_targets = _arm_handles(body_center_x, top, bottom, body_unit, arm_slim)
         add_move(arm_sources, arm_targets)
 
-    mask = body_shape_mask(shape, body_center_x, top, bottom, face_w, body_slim, waist_slim, arm_slim)
+    mask = body_shape_mask(shape, body_center_x, top, bottom, body_unit, body_slim, waist_slim, arm_slim)
+    if analysis_mask is not None:
+        masked = np.clip(mask * np.clip(analysis_mask * 1.18, 0, 1), 0, 1).astype(np.float32)
+        if float(masked.max(initial=0)) > 0.04:
+            mask = masked
     return BodyHandles(
         np.asarray(sources, dtype=np.float32),
         np.asarray(targets, dtype=np.float32),
         mask,
     )
+
+
+def _body_geometry_from_analysis(
+    shape: tuple[int, int],
+    face: FaceLandmarks,
+    analysis_result: AnalysisResult | None,
+) -> tuple[float, float, float, float, np.ndarray] | None:
+    if analysis_result is None:
+        return None
+    height, width = shape
+    person_mask = _fit_mask(analysis_result.masks.get("person_mask"), shape)
+    if person_mask is None or float(person_mask.max(initial=0)) <= 0.05:
+        return None
+
+    x, y, face_w, face_h = face.bbox
+    face_cutoff = int(np.clip(y + face_h * 0.70, 0, height))
+    body_candidates = [
+        _analysis_region_mask(analysis_result, name, shape)
+        for name in [
+            "torso_region",
+            "waist_region",
+            "chest_region",
+            "hip_region",
+            "left_arm_region",
+            "right_arm_region",
+            "left_leg_region",
+            "right_leg_region",
+        ]
+    ]
+    available = [mask for mask in body_candidates if mask is not None and float(mask.max(initial=0)) > 0.05]
+    if available:
+        body_mask = np.clip(np.maximum.reduce(available), 0, 1).astype(np.float32)
+        body_mask = np.minimum(np.maximum(body_mask, person_mask * 0.35), person_mask)
+    else:
+        body_mask = person_mask.copy()
+        body_mask[:face_cutoff, :] = 0
+
+    if float(body_mask.max(initial=0)) <= 0.05:
+        return None
+
+    body_bbox = mask_bbox(body_mask, threshold=0.06)
+    if body_bbox[2] <= 1 or body_bbox[3] <= 1:
+        return None
+
+    bx, by, bw, bh = body_bbox
+    top = float(np.clip(max(by, y + face_h * 0.64), 0, height - 1))
+    bottom = float(np.clip(by + bh, top + face_h * 0.75, height - 1))
+    if bottom - top < max(30.0, face_h * 0.65):
+        return None
+
+    region = body_mask[int(top) : int(bottom), :]
+    if region.size and float(region.sum()) > 1:
+        columns = region.sum(axis=0)
+        xs = np.arange(width, dtype=np.float32)
+        center_x = float(np.sum(xs * columns) / max(float(columns.sum()), 1.0))
+    else:
+        center_x = bx + bw * 0.5
+    center_x = float(np.clip(center_x, width * 0.08, width * 0.92))
+
+    torso_mask = _analysis_region_mask(analysis_result, "torso_region", shape)
+    torso_bbox = mask_bbox(torso_mask, threshold=0.06) if torso_mask is not None else (0.0, 0.0, 0.0, 0.0)
+    if torso_bbox[2] > 1:
+        body_unit = float(np.clip(torso_bbox[2] / 2.35, face_w * 0.75, face_w * 1.65))
+    else:
+        body_unit = float(np.clip(bw / 2.70, face_w * 0.75, face_w * 1.65))
+
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (17, 17))
+    blend_mask = cv2.dilate((body_mask > 0.05).astype(np.float32), kernel)
+    blend_mask = cv2.GaussianBlur(blend_mask, (0, 0), sigmaX=max(2.0, body_unit * 0.045))
+    blend_mask[:face_cutoff, :] *= 0.18
+    return center_x, top, bottom, body_unit, np.clip(blend_mask, 0, 1).astype(np.float32)
 
 
 def body_shape_mask(
@@ -141,10 +230,26 @@ def body_shape_mask(
     vertical = _smoothstep(t) * _smoothstep(1.0 - t * 0.92)
     waist = np.exp(-((t - 0.50) / 0.24) ** 2) * np.exp(-(nx**2) * 0.80)
     side = np.exp(-((nx - 1.02) / 0.34) ** 2) * _smoothstep(t * 1.35) * _smoothstep(1.05 - t)
-    strength = np.clip(body_slim * 0.60 * torso + waist_slim * 0.75 * waist + arm_slim * 0.50 * side, 0, 1)
-    mask = np.clip(strength * vertical, 0, 1).astype(np.float32)
+    strength = np.clip(abs(body_slim) * 0.65 * torso + abs(waist_slim) * 0.80 * waist + abs(arm_slim) * 0.92 * side, 0, 1)
+    mask = np.clip(strength * vertical * 1.75, 0, 1).astype(np.float32)
     mask[yy < top] = 0
     return cv2.GaussianBlur(mask, (0, 0), sigmaX=max(1.0, face_w * 0.025)).astype(np.float32)
+
+
+def _analysis_region_mask(analysis_result: AnalysisResult, name: str, shape: tuple[int, int]) -> np.ndarray | None:
+    region = analysis_result.regions.get(name)
+    if region is None:
+        return None
+    return _fit_mask(region.mask, shape)
+
+
+def _fit_mask(mask: np.ndarray | None, shape: tuple[int, int]) -> np.ndarray | None:
+    if mask is None:
+        return None
+    arr = np.clip(np.asarray(mask, dtype=np.float32), 0, 1)
+    if arr.shape[:2] != shape:
+        arr = cv2.resize(arr, (shape[1], shape[0]), interpolation=cv2.INTER_LINEAR)
+    return np.clip(arr, 0, 1).astype(np.float32)
 
 
 def _arm_handles(center_x: float, top: float, bottom: float, face_w: float, amount: float) -> tuple[np.ndarray, np.ndarray]:
@@ -155,7 +260,7 @@ def _arm_handles(center_x: float, top: float, bottom: float, face_w: float, amou
     for t in rows:
         y_row = top + body_h * float(t)
         half_width = _body_half_width(face_w, t) * (1.03 + 0.13 * float(t))
-        inward = face_w * amount * (0.055 + 0.045 * float(t))
+        inward = face_w * amount * (0.160 + 0.115 * float(t))
         left = np.array([center_x - half_width, y_row], dtype=np.float32)
         right = np.array([center_x + half_width, y_row], dtype=np.float32)
         sources.extend([left, right])

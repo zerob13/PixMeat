@@ -10,13 +10,14 @@
 | State management | Zustand |
 | Canvas | HTML Canvas 2D first, WebGL optional later |
 | Main process | TypeScript |
-| Local engine | Python 3.11+ |
+| Local engine | Bundled Python 3.12 runtime or developer Python 3.11+ |
 | Image arrays | NumPy |
 | Image IO | Pillow + OpenCV |
 | CV operations | OpenCV |
 | Face landmarks | Analysis V2 model slots plus MediaPipe/eye-pair/Haar classic detection |
 | Tensor acceleration | PyTorch probe only in current build |
 | Optional inference runtime | Local MediaPipe Tasks/ONNX Runtime model slots for Analysis V2 |
+| Runtime injection | `tiny-runtime-injector` + uv + python-build-standalone |
 | Packaging | electron-builder + bundled Python executable |
 
 ## 2. Runtime Strategy
@@ -129,13 +130,19 @@ Parameter values are normalized in UI and engine.
 
 ```python
 @dataclass
+class BodyParams:
+    body_slim: float = 0.0     # -1..1
+    waist_slim: float = 0.0    # -1..1
+    arm_slim: float = 0.0      # -1..1
+
+@dataclass
 class LiquifyParams:
-    face_slim: float = 0.0      # 0..1
-    jawline: float = 0.0        # 0..1
+    face_slim: float = 0.0      # -1..1
+    jawline: float = 0.0        # -1..1
     chin_length: float = 0.0    # -1..1
-    eye_enlarge: float = 0.0    # 0..1
-    nose_slim: float = 0.0      # 0..1
-    smile: float = 0.0          # 0..1
+    eye_enlarge: float = 0.0    # -1..1
+    nose_slim: float = 0.0      # -1..1
+    smile: float = 0.0          # -1..1
 
 @dataclass
 class SkinParams:
@@ -157,13 +164,19 @@ UI displays human-friendly ranges and converts to normalized engine values.
 ## 7. TypeScript Parameter Types
 
 ```ts
+export type BodyParams = {
+  bodySlim: number;      // -100..100
+  waistSlim: number;     // -100..100
+  armSlim: number;       // -100..100
+};
+
 export type LiquifyParams = {
-  faceSlim: number;      // 0..100
-  jawline: number;       // 0..100
+  faceSlim: number;      // -100..100
+  jawline: number;       // -100..100
   chinLength: number;    // -50..50
-  eyeEnlarge: number;    // 0..100
-  noseSlim: number;      // 0..100
-  smile: number;         // 0..100
+  eyeEnlarge: number;    // -100..100
+  noseSlim: number;      // -100..100
+  smile: number;         // -100..100
 };
 
 export type SkinParams = {
@@ -181,6 +194,7 @@ export type BeautyParams = {
 };
 
 export type EditParams = {
+  body: BodyParams;
   liquify: LiquifyParams;
   skin: SkinParams;
   beauty: BeautyParams;
@@ -357,7 +371,14 @@ pnpm build
 
 ### Python
 
-Use venv and pip.
+For app development without a local Python, use the injected runtime:
+
+```bash
+pnpm engine:runtime
+pnpm dev
+```
+
+For engine development and direct pytest runs, use venv and pip.
 
 ```bash
 python -m venv .venv

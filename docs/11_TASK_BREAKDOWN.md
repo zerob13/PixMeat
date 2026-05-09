@@ -4,7 +4,7 @@
 
 Each task should be implemented as a small vertical change with tests where applicable.
 
-Status note: Epics A-H are largely implemented for the current face-retouch CPU product. Epic I is probe-only. Packaging and deeper QA remain active work. Keep task statuses updated when implementation changes.
+Status note: Epics A-H are largely implemented for the current CPU product. Analysis V2 is the default analysis path, body and face shape sliders are bidirectional, and Epic I is probe-only. Packaging and deeper QA remain active work. Keep task statuses updated when implementation changes.
 
 Task fields:
 
@@ -283,9 +283,9 @@ engine/tests/test_warp.py
 - MLS identity maps are stable.
 - MLS inverse translation maps target pixels back to source coordinates.
 
-### E2. Implement Face Slim with Handles
+### E2. Implement Face Shape with Bidirectional Handles
 
-**Goal:** Add face slim parameter.
+**Goal:** Add signed face shape parameter.
 
 **Files:**
 
@@ -298,12 +298,13 @@ engine/beauty_engine/pipeline.py
 
 - `face_slim=0` changes nothing.
 - `face_slim=0.3` visibly slims face.
+- `face_slim=-0.3` visibly widens face.
 - Background outside face mask remains stable.
 - Slider target handles are included in a single inverse MLS remap.
 
-### E3. Implement Eye Enlarge
+### E3. Implement Eye Size
 
-**Goal:** Add local eye enlargement.
+**Goal:** Add local signed eye size control.
 
 **Files:**
 
@@ -313,7 +314,8 @@ engine/beauty_engine/liquify.py
 
 **Acceptance Criteria:**
 
-- Both eyes enlarge symmetrically.
+- Positive values enlarge both eyes symmetrically.
+- Negative values shrink both eyes symmetrically.
 - Eye center remains stable.
 - Eyebrows stay mostly stable.
 
@@ -333,9 +335,9 @@ engine/beauty_engine/liquify.py
 - Chin slider changes chin height.
 - Mouth remains stable.
 
-### E5. Implement Nose Slim and Smile
+### E5. Implement Nose Width and Smile
 
-**Goal:** Add nose and mouth controls.
+**Goal:** Add signed nose width and mouth corner controls.
 
 **Files:**
 
@@ -345,8 +347,8 @@ engine/beauty_engine/liquify.py
 
 **Acceptance Criteria:**
 
-- Nose width reduces with parameter.
-- Mouth corners lift with smile.
+- Positive nose values reduce nose width and negative values widen it.
+- Positive smile values lift mouth corners and negative values lower them.
 - High values remain bounded.
 
 ### E6. Add Liquify Debug Outputs

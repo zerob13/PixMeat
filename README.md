@@ -6,10 +6,9 @@ PixMeat is a local portrait retouching desktop app built with Electron, React, T
 
 - Node.js 20+
 - pnpm 9+
-- Python 3.11 or 3.12
 - macOS or Windows for the desktop app
 
-Python 3.13 is not recommended yet because the optional MediaPipe dependency is pinned to Python versions below 3.13.
+Python 3.11 or 3.12 is useful for engine development, but it is no longer required just to run `pnpm dev` or a packaged app. PixMeat can generate a bundled uv/Python runtime under `engine/runtime`.
 
 ## Setup
 
@@ -19,7 +18,7 @@ Install JavaScript dependencies:
 pnpm install
 ```
 
-Create and populate the Python engine environment:
+For engine development, create and populate the Python environment:
 
 ```bash
 cd engine
@@ -41,7 +40,9 @@ python -m beauty_engine.cli health
 python -m pytest
 ```
 
-In development the Electron main process automatically uses `engine/.venv` when it exists. You can still override the Python executable explicitly:
+In development the Electron main process automatically uses `engine/.venv` when it exists. If it does not exist, `pnpm dev` runs `scripts/prepare-engine-runtime.mjs --if-missing`, which injects uv/Python with `tiny-runtime-injector` and installs `engine/requirements.txt` into `engine/runtime/venv`.
+
+You can still override the Python executable explicitly:
 
 ```bash
 export PIXMEAT_PYTHON="$PWD/engine/.venv/bin/python"
@@ -55,13 +56,21 @@ Run the desktop app:
 pnpm dev
 ```
 
+Prepare the bundled engine runtime explicitly:
+
+```bash
+pnpm engine:runtime
+```
+
 Run checks:
 
 ```bash
 pnpm test:ui
-cd engine && .venv/bin/python -m pytest
+pnpm test:engine
 pnpm lint
 ```
+
+`pnpm test:engine` uses `engine/.venv` when present and otherwise prepares/uses the bundled runtime under `engine/runtime/venv`.
 
 Run the engine CLI directly:
 
@@ -73,12 +82,11 @@ cd engine
 
 ## Analysis V2
 
-Analysis V2 is selectable through engine config and environment variables. It adds model-backed slots for face detection, landmarks, person segmentation, human parsing, semantic skin masks, body regions, and debug overlays. Missing model paths never trigger network downloads; the engine records diagnostics and degrades to deterministic CPU geometry. Legacy skin/background face guesses are disabled by default.
+Analysis V2 is the default analysis path and is still configurable through engine config and environment variables. It adds model-backed slots for face detection, landmarks, person segmentation, human parsing, semantic skin masks, body regions, and debug overlays. Missing model paths never trigger network downloads; the engine records diagnostics and degrades to deterministic CPU geometry. Legacy skin/background face guesses are disabled by default.
 
-Enable it for the Python engine:
+Configure it for the Python engine:
 
 ```bash
-export PIXMEAT_ANALYSIS_VERSION=v2
 export PIXMEAT_ANALYSIS_DEBUG=true
 export PIXMEAT_ANALYSIS_DEBUG_DIR=/tmp/pixmeat-analysis
 export PIXMEAT_MODEL_DIR=/absolute/path/to/local/models
@@ -112,7 +120,7 @@ Build TypeScript and renderer/main bundles:
 pnpm build
 ```
 
-Build a standalone Python engine binary before packaging when needed:
+Build a standalone Python engine binary before packaging only when needed:
 
 ```bash
 ./scripts/build-engine.sh
@@ -130,4 +138,4 @@ Create Electron packages:
 pnpm dist
 ```
 
-Packaged builds include the Python engine source and requirements. If a standalone `engine/dist/beauty-engine` binary is present, `electron-builder.yml` can bundle it under Electron resources.
+`pnpm dist` runs `pnpm engine:runtime` first. Packaged builds include the Python engine source, local models, the injected uv/Python runtime, and the installed Python dependencies. If a standalone `engine/dist/beauty-engine` binary is present, Electron still prefers that binary.

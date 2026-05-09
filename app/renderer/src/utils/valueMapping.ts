@@ -10,17 +10,17 @@ export const clampUiParams = (params: EditParams): EditParams => {
   const beauty = params.beauty ?? defaultParams.beauty
   return {
     body: {
-      bodySlim: clamp(body.bodySlim, 0, 100),
-      waistSlim: clamp(body.waistSlim, 0, 100),
-      armSlim: clamp(body.armSlim, 0, 100)
+      bodySlim: clamp(body.bodySlim, -100, 100),
+      waistSlim: clamp(body.waistSlim, -100, 100),
+      armSlim: clamp(body.armSlim, -100, 100)
     },
     liquify: {
-      faceSlim: clamp(liquify.faceSlim, 0, 100),
-      jawline: clamp(liquify.jawline, 0, 100),
+      faceSlim: clamp(liquify.faceSlim, -100, 100),
+      jawline: clamp(liquify.jawline, -100, 100),
       chinLength: clamp(liquify.chinLength, -50, 50),
-      eyeEnlarge: clamp(liquify.eyeEnlarge, 0, 100),
-      noseSlim: clamp(liquify.noseSlim, 0, 100),
-      smile: clamp(liquify.smile, 0, 100)
+      eyeEnlarge: clamp(liquify.eyeEnlarge, -100, 100),
+      noseSlim: clamp(liquify.noseSlim, -100, 100),
+      smile: clamp(liquify.smile, -100, 100)
     },
     skin: {
       skinSmooth: clamp(skin.skinSmooth, 0, 100),

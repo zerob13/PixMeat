@@ -32,8 +32,17 @@ def test_body_slim_changes_body_region(full_body_image: np.ndarray, full_body_fa
     face_region = np.zeros(full_body_image.shape[:2], dtype=bool)
     face_region[int(y) : int(y + h), int(x) : int(x + w)] = True
 
-    assert float(np.mean(diff[handles.mask > 0.10])) > 0.0005
+    assert float(np.mean(diff[handles.mask > 0.02])) > 0.0005
     assert float(np.mean(diff[face_region])) < float(np.mean(diff[handles.mask > 0.10])) * 0.8
+
+
+def test_negative_body_shape_changes_body_region(full_body_image: np.ndarray, full_body_face: FaceLandmarks) -> None:
+    handles = build_body_handles(full_body_image.shape[:2], full_body_face, BodyParams(body_slim=-0.55, waist_slim=-0.35))
+    result = apply_body_shape(full_body_image, full_body_face, BodyParams(body_slim=-0.55, waist_slim=-0.35))
+    diff = np.mean(np.abs(result - full_body_image), axis=2)
+
+    assert handles.has_motion
+    assert float(np.mean(diff[handles.mask > 0.10])) > 0.0005
 
 
 def test_body_handles_are_bounded(full_body_image: np.ndarray, full_body_face: FaceLandmarks) -> None:

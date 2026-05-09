@@ -12,14 +12,16 @@ The app focuses on fast, natural, controllable portrait edits. It avoids a large
 
 ## Current Implementation Status
 
-The current repository implements the V1 face-retouching path on the CPU backend:
+The current repository implements the local CPU retouching path with Analysis V2 enabled by default:
 
 - Open/load/preview/export flows are wired through Electron and the Python engine.
 - Face edits are active-face only.
+- Analysis V2 provides face candidates, landmarks, person masks, coarse body regions, semantic skin masks, and debug overlays.
 - Liquify uses inverse MLS dense warp with control handles and foldover diagnostics.
+- Body reshape uses bidirectional MLS handles and Analysis V2 person/body masks when available.
 - Skin retouch uses refined skin masks, guided filtering, texture restoration, blemish softening, and Lab tone evening.
 - CUDA, MPS, and OpenCV CUDA are health/diagnostic probes only; they are not yet used by the processing pipeline.
-- Body reshape, human parsing, pose analysis, RAW, batch, plugins, and cloud processing remain future work.
+- Production human parsing model adapters, pose analysis, RAW, batch, plugins, and cloud processing remain future work.
 
 ## 3. V1 Target Users
 
@@ -50,7 +52,8 @@ A technically comfortable user who wants a local alternative to cloud-based reto
 | File | Open image, save/export image |
 | View | Fit, zoom, pan, before, after, split view |
 | Face | Auto-detect face, select active face when multiple faces exist |
-| Liquify | Face slim, jawline, chin, eye enlarge, nose slim, smile |
+| Body | Body shape, waist, arms |
+| Liquify | Face shape, jawline, chin, eye size, nose width, smile/frown |
 | Skin | Smooth, texture keep, blemish soften, skin tone even |
 | Beauty | Brightness, eye brighten, teeth whiten, mild contrast |
 | Presets | Built-in presets, save user preset, reset |
@@ -65,7 +68,6 @@ A technically comfortable user who wants a local alternative to cloud-based reto
 | Photoshop | UXP plugin |
 | Batch | Batch import and batch export |
 | RAW | RAW decoding and color workflow |
-| Body | Body reshape |
 | Makeup | Makeup transfer and detailed facial makeup |
 | AI inpaint | Object removal and background replacement |
 | Cloud | Optional remote GPU processing |
@@ -114,16 +116,24 @@ All image analysis and image transformation run on the user's machine. V1 stores
 
 ## 9. Core Editing Parameters
 
+### Body Parameters
+
+| Parameter | Range | Default | Meaning |
+|---|---:|---:|---|
+| `body_slim` | -100 to 100 | 0 | Negative widens/fattens the body, positive slims the body |
+| `waist_slim` | -100 to 100 | 0 | Negative widens the waist, positive narrows the waist |
+| `arm_slim` | -100 to 100 | 0 | Negative widens arms, positive slims arms |
+
 ### Liquify Parameters
 
 | Parameter | Range | Default | Meaning |
 |---|---:|---:|---|
-| `face_slim` | 0-100 | 0 | Move cheek/jaw contours toward face center |
-| `jawline` | 0-100 | 0 | Sharpen and lift jaw contour |
+| `face_slim` | -100 to 100 | 0 | Negative widens/fattens face shape, positive slims cheek/jaw contours |
+| `jawline` | -100 to 100 | 0 | Negative softens/widens lower jaw, positive narrows/lifts jaw contour |
 | `chin_length` | -50 to 50 | 0 | Shorten or lengthen chin vertically |
-| `eye_enlarge` | 0-100 | 0 | Enlarge both eyes locally |
-| `nose_slim` | 0-100 | 0 | Narrow nose wing and bridge region |
-| `smile` | 0-100 | 0 | Lift mouth corners subtly |
+| `eye_enlarge` | -100 to 100 | 0 | Negative shrinks eyes, positive enlarges both eyes locally |
+| `nose_slim` | -100 to 100 | 0 | Negative widens nose, positive narrows nose wing and bridge region |
+| `smile` | -100 to 100 | 0 | Negative lowers mouth corners, positive lifts mouth corners subtly |
 
 ### Skin Parameters
 

@@ -27,7 +27,8 @@ export class EngineProcess extends EventEmitter {
       env: {
         ...process.env,
         PYTHONUNBUFFERED: '1',
-        PIXMEAT_MODEL_DIR: process.env.PIXMEAT_MODEL_DIR ?? join(cwd, 'models')
+        PIXMEAT_MODEL_DIR: process.env.PIXMEAT_MODEL_DIR ?? join(cwd, 'models'),
+        PYTHONNOUSERSITE: '1'
       },
       windowsHide: true
     })
@@ -90,7 +91,7 @@ export class EngineProcess extends EventEmitter {
         return { command: candidate, args: ['serve'], cwd: engineRoot }
       }
       if (existsSync(join(engineRoot, 'beauty_engine'))) {
-        const python = process.env.PIXMEAT_PYTHON ?? (process.platform === 'win32' ? 'python' : 'python3')
+        const python = process.env.PIXMEAT_PYTHON ?? this.resolveBundledRuntimePython(engineRoot)
         return { command: python, args: ['-m', 'beauty_engine.api'], cwd: engineRoot }
       }
     }
@@ -112,7 +113,34 @@ export class EngineProcess extends EventEmitter {
     if (existsSync(venvPython)) {
       return venvPython
     }
+    const runtimePython = this.resolveRuntimePython(engineRoot)
+    if (runtimePython) {
+      return runtimePython
+    }
     return process.platform === 'win32' ? 'python' : 'python3'
+  }
+
+  private resolveBundledRuntimePython(engineRoot: string): string {
+    const runtimePython = this.resolveRuntimePython(engineRoot)
+    if (runtimePython) {
+      return runtimePython
+    }
+    return process.platform === 'win32' ? 'python' : 'python3'
+  }
+
+  private resolveRuntimePython(engineRoot: string): string | null {
+    const runtimePython =
+      process.platform === 'win32'
+        ? join(engineRoot, 'runtime', 'venv', 'Scripts', 'python.exe')
+        : join(engineRoot, 'runtime', 'venv', 'bin', 'python')
+    if (existsSync(runtimePython)) {
+      return runtimePython
+    }
+    const standalonePython =
+      process.platform === 'win32'
+        ? join(engineRoot, 'runtime', 'python', 'bin', 'python.exe')
+        : join(engineRoot, 'runtime', 'python', 'bin', 'python3')
+    return existsSync(standalonePython) ? standalonePython : null
   }
 
   private handleStdout(chunk: string): void {

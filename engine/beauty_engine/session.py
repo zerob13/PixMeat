@@ -12,7 +12,6 @@ import numpy as np
 from .analysis import AnalysisV2
 from .face import FaceLandmarks, detect_faces, find_face, serialize_faces
 from .io import ImageData, read_image, resize_max_side, to_uint8, write_image, write_json
-from .landmark_indices import FACE_OVAL
 from .models.model_config import AnalysisConfig
 from .types import AnalysisResult
 
@@ -157,21 +156,15 @@ def legacy_faces_from_analysis(result: AnalysisResult) -> list[FaceLandmarks]:
         points = landmarks.astype(np.float32).copy()
         points[:, 0] /= max(1, width)
         points[:, 1] /= max(1, height)
-        x, y, w, h = face.bbox
+        x, y, w, h = face.expanded_bbox
         faces.append(FaceLandmarks(face.face_id, (x, y, w, h), points, face.confidence))
     return faces
 
 
 def scale_face(face: FaceLandmarks, width: int, height: int) -> FaceLandmarks:
     points = face.points.copy()
-    oval = points[FACE_OVAL, :2]
-    x_min, y_min = np.min(oval, axis=0)
-    x_max, y_max = np.max(oval, axis=0)
-    if x_max <= x_min or y_max <= y_min:
-        x, y, w, h = face.bbox
-        bbox = (x * width, y * height, w * width, h * height)
-    else:
-        bbox = (x_min * width, y_min * height, (x_max - x_min) * width, (y_max - y_min) * height)
+    x, y, w, h = face.bbox
+    bbox = (x * width, y * height, w * width, h * height)
     return FaceLandmarks(face.face_id, clamp_bbox(bbox, width, height), points, face.confidence)
 
 

@@ -19,6 +19,14 @@ def test_face_slim_changes_face_region(portrait_image: np.ndarray, portrait_face
     assert float(np.mean(diff[masks.face < 0.01])) < 0.004
 
 
+def test_negative_face_slim_widens_face_region(portrait_image: np.ndarray, portrait_face) -> None:
+    masks = build_masks(portrait_image.shape[:2], portrait_face)
+    result = apply_liquify(portrait_image, portrait_face, masks, LiquifyParams(face_slim=-0.45))
+    diff = np.mean(np.abs(result - portrait_image), axis=2)
+    assert float(np.mean(diff[masks.face > 0.2])) > 0.001
+    assert float(np.mean(diff[masks.face < 0.01])) < 0.004
+
+
 def test_face_slim_preserves_protected_features(portrait_image: np.ndarray, portrait_face) -> None:
     masks = build_masks(portrait_image.shape[:2], portrait_face)
     result = apply_liquify(portrait_image, portrait_face, masks, LiquifyParams(face_slim=0.7))
@@ -41,5 +49,12 @@ def test_face_slim_preserves_protected_features(portrait_image: np.ndarray, port
 def test_eye_enlarge_changes_eye_region(portrait_image: np.ndarray, portrait_face) -> None:
     masks = build_masks(portrait_image.shape[:2], portrait_face)
     result = apply_liquify(portrait_image, portrait_face, masks, LiquifyParams(eye_enlarge=0.7))
+    diff = np.mean(np.abs(result - portrait_image), axis=2)
+    assert float(np.mean(diff[masks.eyes > 0.2])) > 0.0005
+
+
+def test_eye_shrink_changes_eye_region(portrait_image: np.ndarray, portrait_face) -> None:
+    masks = build_masks(portrait_image.shape[:2], portrait_face)
+    result = apply_liquify(portrait_image, portrait_face, masks, LiquifyParams(eye_enlarge=-0.7))
     diff = np.mean(np.abs(result - portrait_image), axis=2)
     assert float(np.mean(diff[masks.eyes > 0.2])) > 0.0005

@@ -22,6 +22,10 @@ extraResources:
     to: engine/models
     filter:
       - "**/*"
+  - from: engine/runtime
+    to: engine/runtime
+    filter:
+      - "**/*"
 mac:
   target:
     - dmg

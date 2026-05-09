@@ -10,7 +10,7 @@ from typing import Any
 class AnalysisConfig:
     """Configuration for Analysis V2 model loading and debug export."""
 
-    version: str = "v1"
+    version: str = "v2"
     debug: bool = False
     debug_dir: str | None = None
     device: str = "auto"
@@ -56,7 +56,7 @@ class AnalysisConfig:
             if env_value:
                 paths[key] = env_value
         return cls(
-            version=os.environ.get("PIXMEAT_ANALYSIS_VERSION", "v1"),
+            version=os.environ.get("PIXMEAT_ANALYSIS_VERSION", "v2"),
             debug=_bool(os.environ.get("PIXMEAT_ANALYSIS_DEBUG", "false")),
             debug_dir=os.environ.get("PIXMEAT_ANALYSIS_DEBUG_DIR"),
             device=os.environ.get("PIXMEAT_ANALYSIS_DEVICE", "auto"),

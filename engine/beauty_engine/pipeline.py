@@ -48,7 +48,7 @@ def process_image(
         masks = _analysis_only_masks(analysis_result, image.shape[:2])
 
     progress(0.16, "body_shape")
-    result = apply_body_shape(image, active_face, params.body, debug_dir=debug_dir)
+    result = apply_body_shape(image, active_face, params.body, analysis_result=analysis_result, debug_dir=debug_dir)
 
     progress(0.28, "liquify")
     result = apply_liquify(result, active_face, masks, params.liquify, debug_dir=debug_dir)

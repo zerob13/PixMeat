@@ -20,9 +20,9 @@ export const SliderPanel = ({
     <SliderSection title="Body" onReset={() => onResetGroup('body')}>
       <SliderControl
         disabled={disabled}
-        label="Body Slim"
+        label="Body Shape"
         max={100}
-        min={0}
+        min={-100}
         value={params.body.bodySlim}
         onChange={(value) => onParamChange('body', 'bodySlim', value)}
       />
@@ -30,7 +30,7 @@ export const SliderPanel = ({
         disabled={disabled}
         label="Waist"
         max={100}
-        min={0}
+        min={-100}
         value={params.body.waistSlim}
         onChange={(value) => onParamChange('body', 'waistSlim', value)}
       />
@@ -38,7 +38,7 @@ export const SliderPanel = ({
         disabled={disabled}
         label="Arms"
         max={100}
-        min={0}
+        min={-100}
         value={params.body.armSlim}
         onChange={(value) => onParamChange('body', 'armSlim', value)}
       />
@@ -47,9 +47,9 @@ export const SliderPanel = ({
     <SliderSection title="Liquify" onReset={() => onResetGroup('liquify')}>
       <SliderControl
         disabled={disabled}
-        label="Face Slim"
+        label="Face Shape"
         max={100}
-        min={0}
+        min={-100}
         value={params.liquify.faceSlim}
         onChange={(value) => onParamChange('liquify', 'faceSlim', value)}
       />
@@ -57,7 +57,7 @@ export const SliderPanel = ({
         disabled={disabled}
         label="Jawline"
         max={100}
-        min={0}
+        min={-100}
         value={params.liquify.jawline}
         onChange={(value) => onParamChange('liquify', 'jawline', value)}
       />
@@ -71,17 +71,17 @@ export const SliderPanel = ({
       />
       <SliderControl
         disabled={disabled}
-        label="Eye Enlarge"
+        label="Eye Size"
         max={100}
-        min={0}
+        min={-100}
         value={params.liquify.eyeEnlarge}
         onChange={(value) => onParamChange('liquify', 'eyeEnlarge', value)}
       />
       <SliderControl
         disabled={disabled}
-        label="Nose Slim"
+        label="Nose Width"
         max={100}
-        min={0}
+        min={-100}
         value={params.liquify.noseSlim}
         onChange={(value) => onParamChange('liquify', 'noseSlim', value)}
       />
@@ -89,7 +89,7 @@ export const SliderPanel = ({
         disabled={disabled}
         label="Smile"
         max={100}
-        min={0}
+        min={-100}
         value={params.liquify.smile}
         onChange={(value) => onParamChange('liquify', 'smile', value)}
       />

@@ -227,20 +227,20 @@ def _face_from_eye_pair(
     if down[1] < 0:
         down *= -1
     midpoint = np.array([(ax + bx) * 0.5, (ay + by) * 0.5], dtype=np.float32)
-    center = midpoint + down * np.float32(distance * 0.78)
-    face_w = float(distance * 2.90)
+    face_w = float(distance / 0.32)
     face_h = float(distance * 3.35)
+    center = midpoint + down * np.float32(face_h * 0.08)
     bbox = _clamp_bbox(
         (
             float(center[0] - face_w * 0.50),
-            float(center[1] - face_h * 0.52),
+            float(center[1] - face_h * 0.50),
             face_w,
-            face_h * 1.08,
+            face_h,
         ),
         width,
         height,
     )
-    if bbox[2] / width > 0.32 or bbox[3] / height > 0.34:
+    if bbox[2] / width > 0.34 or bbox[3] / height > 0.36:
         return None
     points = _synthetic_landmarks(bbox, width, height, roll=roll)
     return FaceLandmarks("face_1", bbox, points, 0.0)

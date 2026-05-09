@@ -14,9 +14,11 @@ PixMeat.app / PixMeat.exe
   ├─ Electron runtime
   ├─ Renderer bundle
   ├─ Main process bundle
-  ├─ Python engine executable
-  ├─ Python runtime dependencies
-  ├─ Python package dependencies
+  ├─ Python engine source
+  ├─ Optional Python engine executable
+  ├─ Injected uv runtime
+  ├─ Injected Python runtime
+  ├─ Python package dependencies in runtime venv
   ├─ Optional local Analysis V2 model assets
   └─ Default presets
 ```
@@ -25,7 +27,9 @@ PixMeat.app / PixMeat.exe
 
 ### Recommended Tooling
 
-Use PyInstaller first because it is mature and straightforward for bundling Python apps.
+Use `tiny-runtime-injector` first so packaged apps do not depend on a user-installed Python. `scripts/prepare-engine-runtime.mjs` injects uv and python-build-standalone, then uses uv to create a relocatable `engine/runtime/venv` and install `engine/requirements.txt`.
+
+PyInstaller remains optional for later builds that need a single engine executable.
 
 ### Engine Binary Names
 
@@ -55,6 +59,14 @@ pyinstaller --clean --onefile `
 ```
 
 Actual PyInstaller spec should include MediaPipe package assets and any dynamic libraries discovered during testing. Optional Analysis V2 weights live under `engine/models` or another configured local model directory.
+
+### Runtime Injection Command
+
+```bash
+pnpm engine:runtime
+```
+
+Generated files live under `engine/runtime` and are ignored by git. `pnpm dist` runs this command before electron-builder.
 
 ## 4. Electron Packaging
 
@@ -86,6 +98,10 @@ extraResources:
     to: engine/models
     filter:
       - "**/*"
+  - from: engine/runtime
+    to: engine/runtime
+    filter:
+      - "**/*"
 mac:
   target:
     - dmg
@@ -108,20 +124,22 @@ Electron main should resolve engine path differently in dev and packaged modes.
 ```ts
 function getEnginePath(): string {
   if (app.isPackaged) {
-    const name = process.platform === 'win32' ? 'beauty-engine.exe' : 'beauty-engine';
-    return path.join(process.resourcesPath, 'engine', name);
+    const engineRoot = path.join(process.resourcesPath, 'engine');
+    const binary = path.join(engineRoot, process.platform === 'win32' ? 'beauty-engine.exe' : 'beauty-engine');
+    if (fs.existsSync(binary)) return binary;
+    return path.join(engineRoot, 'runtime', 'venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
   }
   return path.join(repoRoot, 'engine', '.venv', 'bin', 'python');
 }
 ```
 
-Dev mode automatically prefers `engine/.venv/bin/python` on macOS/Linux or `engine/.venv/Scripts/python.exe` on Windows when the venv exists. Otherwise it falls back to `PIXMEAT_PYTHON`, `python`, or `python3` with module args:
+Dev mode automatically prefers `engine/.venv/bin/python` on macOS/Linux or `engine/.venv/Scripts/python.exe` on Windows when the venv exists. Otherwise `pnpm dev` prepares `engine/runtime/venv`, and the main process uses that runtime. Only after those paths are missing does it fall back to `PIXMEAT_PYTHON`, `python`, or `python3` with module args:
 
 ```ts
 python -m beauty_engine.api
 ```
 
-Packaged mode spawns the engine executable with `serve`, matching the CLI entry point.
+Packaged mode prefers the engine executable with `serve` when present. Otherwise it spawns `engine/runtime/venv` with `-m beauty_engine.api`.
 
 ## 6. Model Asset Path Resolution
 
@@ -203,7 +221,8 @@ Future options:
     "build": "tsc --noEmit && electron-vite build",
     "test": "vitest run && pnpm test:engine",
     "test:engine": "python -m pytest engine/tests",
-    "dist": "pnpm build && electron-builder"
+    "engine:runtime": "node scripts/prepare-engine-runtime.mjs",
+    "dist": "pnpm engine:runtime && pnpm build && electron-builder"
   }
 }
 ```

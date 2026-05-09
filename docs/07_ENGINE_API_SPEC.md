@@ -463,9 +463,15 @@ For Analysis V2 sessions this method writes the full V2 debug set instead of onl
 Engine clamps normalized values:
 
 ```python
-face_slim = clamp(face_slim, 0.0, 1.0)
-jawline = clamp(jawline, 0.0, 1.0)
+body_slim = clamp(body_slim, -1.0, 1.0)
+waist_slim = clamp(waist_slim, -1.0, 1.0)
+arm_slim = clamp(arm_slim, -1.0, 1.0)
+face_slim = clamp(face_slim, -1.0, 1.0)
+jawline = clamp(jawline, -1.0, 1.0)
 chin_length = clamp(chin_length, -1.0, 1.0)
+eye_enlarge = clamp(eye_enlarge, -1.0, 1.0)
+nose_slim = clamp(nose_slim, -1.0, 1.0)
+smile = clamp(smile, -1.0, 1.0)
 ```
 
 Invalid or missing groups use defaults.

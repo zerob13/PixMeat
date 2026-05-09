@@ -119,17 +119,40 @@
 - Out-of-order engine responses cannot overwrite newer previews.
 - Reset and preset application follow the same preview rules.
 
-## 5. Liquify Group
+## 5. Body Group
 
-### 5.1 Face Slim
+### 5.1 Body Shape, Waist, Arms
 
 #### Range
 
-`0-100`, default `0`.
+`-100 to 100`, default `0`.
+
+#### Behavior
+
+- Sliders are centered at `0`; negative values widen/fatten the target region and positive values slim/narrow it.
+- Body shape and waist use torso-side MLS handles.
+- Arm shape uses side/arm handles and an Analysis V2 person/body mask when available.
+- At value `0`, this module returns the input unchanged.
+
+#### Acceptance Criteria
+
+- Positive values visibly slim the corresponding body region.
+- Negative values visibly widen the corresponding body region.
+- Face and upper-head areas remain stable during body edits.
+- Background distortion is limited by the body/person blend mask.
+
+## 6. Liquify Group
+
+### 6.1 Face Shape
+
+#### Range
+
+`-100 to 100`, default `0`.
 
 #### Behavior
 
 - Positive values move cheek and jaw contour points toward the vertical face center line.
+- Negative values move cheek and jaw contour points away from the vertical face center line.
 - Movement strength depends on face width.
 - Upper cheek movement is milder than lower cheek movement.
 - Image and face boundary anchors protect ears, hair, neck, and background.
@@ -145,28 +168,30 @@
 
 - At value 0, output equals input for this module.
 - At value 30, cheeks slim visibly.
+- At value -30, cheeks widen visibly without tearing.
 - Jaw contour remains continuous.
 - Background distortion remains contained by face mask blend.
 
-### 5.2 Jawline
+### 6.2 Jawline
 
 #### Range
 
-`0-100`, default `0`.
+`-100 to 100`, default `0`.
 
 #### Behavior
 
 - Positive values move lower jawline points inward and slightly upward.
+- Negative values move lower jawline points outward and slightly downward.
 - Chin center remains stable unless `chin_length` changes.
 - The algorithm emphasizes a cleaner jaw contour through geometric warp only.
 
 #### Acceptance Criteria
 
-- Jaw shape becomes cleaner at 30.
+- Jaw shape becomes cleaner at 30 and fuller at -30.
 - Chin position remains close to original when `chin_length = 0`.
 - Mouth and nose remain stable.
 
-### 5.3 Chin Length
+### 6.3 Chin Length
 
 #### Range
 
@@ -183,15 +208,16 @@
 - Chin length changes without moving mouth significantly.
 - Face oval mask expands/contracts enough to blend shape changes.
 
-### 5.4 Eye Enlarge
+### 6.4 Eye Size
 
 #### Range
 
-`0-100`, default `0`.
+`-100 to 100`, default `0`.
 
 #### Behavior
 
-- Both eyes enlarge around their respective centers.
+- Positive values enlarge both eyes around their respective centers.
+- Negative values shrink both eyes around their respective centers.
 - Upper/lower eyelid points and eye corner points are transformed through target handles.
 - Eyebrows remain mostly stable.
 - Iris and eye white follow the local warp.
@@ -199,47 +225,51 @@
 #### Acceptance Criteria
 
 - At 20, eyes become subtly larger.
+- At -20, eyes become subtly smaller.
 - At 50, eyes enlarge clearly while face texture remains continuous.
 - Eye centers remain stable.
 
-### 5.5 Nose Slim
+### 6.5 Nose Width
 
 #### Range
 
-`0-100`, default `0`.
+`-100 to 100`, default `0`.
 
 #### Behavior
 
-- Nose wing points move toward nose bridge center.
-- Nose bridge receives a mild narrowing effect.
+- Positive values move nose wing points toward nose bridge center.
+- Negative values move nose wing points away from nose bridge center.
 - Nostrils remain visible.
 - Mouth and cheeks stay stable.
 
 #### Acceptance Criteria
 
 - Nose width reduces at 30.
+- Nose width increases at -30.
 - Nostrils avoid severe collapse at high values.
 - Symmetry is preserved for frontal faces.
 
-### 5.6 Smile
+### 6.6 Smile
 
 #### Range
 
-`0-100`, default `0`.
+`-100 to 100`, default `0`.
 
 #### Behavior
 
-- Mouth corners move upward and slightly outward.
+- Positive values move mouth corners upward and slightly outward.
+- Negative values move mouth corners downward and slightly inward.
 - Upper lip and lower lip receive smooth supporting offsets.
 - Nasolabial region receives very mild deformation.
 
 #### Acceptance Criteria
 
 - Mouth corners lift at 30.
+- Mouth corners lower at -30.
 - Teeth/mouth interior distort mildly and plausibly.
 - Nose and chin remain stable.
 
-## 6. Skin Group
+## 7. Skin Group
 
 ### 6.1 Skin Smooth
 
@@ -319,7 +349,7 @@
 - Redness and uneven skin patches become milder.
 - Lips and eye regions preserve original color.
 
-## 7. Beauty Group
+## 8. Beauty Group
 
 ### 7.1 Brightness
 
@@ -390,7 +420,7 @@
 - Positive values add portrait pop.
 - Negative values create softer look.
 
-## 8. Presets
+## 9. Presets
 
 ### Built-In Presets
 
@@ -414,7 +444,7 @@
 - User preset persists across app restarts.
 - Reset restores default values and preview.
 
-## 9. Before / After / Split View
+## 10. Before / After / Split View
 
 ### Modes
 
@@ -431,7 +461,7 @@
 - Before/after toggles without recomputing.
 - Zoom/pan state remains stable across modes.
 
-## 10. Export
+## 11. Export
 
 ### Behavior
 
@@ -458,7 +488,7 @@
 - Export uses full-resolution source.
 - Cancel stops job and cleans temp output.
 
-## 11. Settings
+## 12. Settings
 
 ### Settings Items
 

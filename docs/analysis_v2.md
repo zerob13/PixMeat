@@ -4,7 +4,7 @@ Analysis V2 is the engine's model-backed, debuggable analysis pipeline. It keeps
 
 ## Configuration
 
-Enable V2 through JSON-RPC payloads or environment variables:
+Analysis V2 is enabled by default. Override or configure it through JSON-RPC payloads or environment variables:
 
 ```json
 {
@@ -26,7 +26,7 @@ Supported devices are `auto`, `cpu`, `cuda`, and `mps`. CUDA is preferred for ON
 
 Environment variables:
 
-- `PIXMEAT_ANALYSIS_VERSION=v2`
+- `PIXMEAT_ANALYSIS_VERSION=v2` or `v1` for the legacy analysis path
 - `PIXMEAT_ANALYSIS_DEBUG=true`
 - `PIXMEAT_ANALYSIS_DEBUG_DIR=/path/to/debug`
 - `PIXMEAT_ANALYSIS_DEVICE=auto|cpu|cuda|mps`

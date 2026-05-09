@@ -34,9 +34,9 @@ class BodyParams:
     def from_payload(cls, payload: dict[str, Any] | None) -> "BodyParams":
         payload = payload or {}
         return cls(
-            body_slim=clamp(get_any(payload, "body_slim", "bodySlim", 0), 0, 1, 0),
-            waist_slim=clamp(get_any(payload, "waist_slim", "waistSlim", 0), 0, 1, 0),
-            arm_slim=clamp(get_any(payload, "arm_slim", "armSlim", 0), 0, 1, 0),
+            body_slim=clamp(get_any(payload, "body_slim", "bodySlim", 0), -1, 1, 0),
+            waist_slim=clamp(get_any(payload, "waist_slim", "waistSlim", 0), -1, 1, 0),
+            arm_slim=clamp(get_any(payload, "arm_slim", "armSlim", 0), -1, 1, 0),
         )
 
 
@@ -53,12 +53,12 @@ class LiquifyParams:
     def from_payload(cls, payload: dict[str, Any] | None) -> "LiquifyParams":
         payload = payload or {}
         return cls(
-            face_slim=clamp(get_any(payload, "face_slim", "faceSlim", 0), 0, 1, 0),
-            jawline=clamp(get_any(payload, "jawline", "jawline", 0), 0, 1, 0),
+            face_slim=clamp(get_any(payload, "face_slim", "faceSlim", 0), -1, 1, 0),
+            jawline=clamp(get_any(payload, "jawline", "jawline", 0), -1, 1, 0),
             chin_length=clamp(get_any(payload, "chin_length", "chinLength", 0), -1, 1, 0),
-            eye_enlarge=clamp(get_any(payload, "eye_enlarge", "eyeEnlarge", 0), 0, 1, 0),
-            nose_slim=clamp(get_any(payload, "nose_slim", "noseSlim", 0), 0, 1, 0),
-            smile=clamp(get_any(payload, "smile", "smile", 0), 0, 1, 0),
+            eye_enlarge=clamp(get_any(payload, "eye_enlarge", "eyeEnlarge", 0), -1, 1, 0),
+            nose_slim=clamp(get_any(payload, "nose_slim", "noseSlim", 0), -1, 1, 0),
+            smile=clamp(get_any(payload, "smile", "smile", 0), -1, 1, 0),
         )
 
 
