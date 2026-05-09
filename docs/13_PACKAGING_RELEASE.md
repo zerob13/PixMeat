@@ -17,6 +17,7 @@ PixMeat.app / PixMeat.exe
   ├─ Python engine executable
   ├─ Python runtime dependencies
   ├─ Python package dependencies
+  ├─ Optional local Analysis V2 model assets
   └─ Default presets
 ```
 
@@ -53,7 +54,7 @@ pyinstaller --clean --onefile `
   beauty_engine/cli_entry.py
 ```
 
-Actual PyInstaller spec should include MediaPipe package assets and any dynamic libraries discovered during testing. The current repo does not have an `engine/models` directory.
+Actual PyInstaller spec should include MediaPipe package assets and any dynamic libraries discovered during testing. Optional Analysis V2 weights live under `engine/models` or another configured local model directory.
 
 ## 4. Electron Packaging
 
@@ -81,6 +82,10 @@ extraResources:
     to: engine/requirements.txt
   - from: engine/pyproject.toml
     to: engine/pyproject.toml
+  - from: engine/models
+    to: engine/models
+    filter:
+      - "**/*"
 mac:
   target:
     - dmg
@@ -110,7 +115,7 @@ function getEnginePath(): string {
 }
 ```
 
-Dev mode can spawn Python with module args:
+Dev mode automatically prefers `engine/.venv/bin/python` on macOS/Linux or `engine/.venv/Scripts/python.exe` on Windows when the venv exists. Otherwise it falls back to `PIXMEAT_PYTHON`, `python`, or `python3` with module args:
 
 ```ts
 python -m beauty_engine.api
@@ -120,13 +125,17 @@ Packaged mode spawns the engine executable with `serve`, matching the CLI entry 
 
 ## 6. Model Asset Path Resolution
 
-No project-owned model directory exists in the current repo. If future detectors or parsers add model files, the engine should read model path from env var when set:
+Analysis V2 never downloads model weights at runtime. The engine reads explicit model paths from JSON-RPC config, then environment variables, then package-local discovery under `engine/models`:
 
 ```text
+PIXMEAT_MODEL_DIR=/path/to/resources/engine/models
 BEAUTY_ENGINE_MODEL_DIR=/path/to/resources/engine/models
+PIXMEAT_FACE_LANDMARKER_MODEL=/path/to/face_landmarker.task
+PIXMEAT_PERSON_SEGMENTATION_MODEL=/path/to/selfie_segmenter.task
+PIXMEAT_HUMAN_PARSING_MODEL=/path/to/schp.onnx
 ```
 
-Fallback to package-local `engine/models` only after that directory exists.
+Electron main sets `PIXMEAT_MODEL_DIR` to the packaged `engine/models` path when the caller has not already provided it.
 
 ## 7. macOS Specifics
 

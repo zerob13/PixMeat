@@ -1,3 +1,9 @@
+export type BodyParams = {
+  bodySlim: number
+  waistSlim: number
+  armSlim: number
+}
+
 export type LiquifyParams = {
   faceSlim: number
   jawline: number
@@ -22,12 +28,18 @@ export type BeautyParams = {
 }
 
 export type EditParams = {
+  body: BodyParams
   liquify: LiquifyParams
   skin: SkinParams
   beauty: BeautyParams
 }
 
 export const defaultParams: EditParams = {
+  body: {
+    bodySlim: 0,
+    waistSlim: 0,
+    armSlim: 0
+  },
   liquify: {
     faceSlim: 0,
     jawline: 0,

@@ -16,11 +16,16 @@ def apply_skin(
     masks: RegionMasks | None,
     params: SkinParams,
     *,
+    skin_mask_override: np.ndarray | None = None,
     debug_dir: str | Path | None = None,
 ) -> np.ndarray:
-    if masks is None:
+    if masks is None and skin_mask_override is None:
         return image.copy()
-    skin_mask = refined_skin_mask(image, masks)
+    skin_mask = (
+        np.clip(skin_mask_override.astype(np.float32), 0, 1)
+        if skin_mask_override is not None
+        else refined_skin_mask(image, masks)
+    )
     if debug_dir:
         output_dir = Path(debug_dir)
         output_dir.mkdir(parents=True, exist_ok=True)

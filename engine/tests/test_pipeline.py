@@ -12,6 +12,8 @@ def test_pipeline_zero_params_is_stable(portrait_image: np.ndarray, portrait_fac
 
 def test_pipeline_all_groups_changes_image(portrait_image: np.ndarray, portrait_face) -> None:
     params = EditParams.from_cli(
+        body_slim=25,
+        waist_slim=20,
         face_slim=35,
         eye_enlarge=25,
         skin_smooth=45,

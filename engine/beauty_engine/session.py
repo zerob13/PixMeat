@@ -3,14 +3,18 @@ from __future__ import annotations
 import os
 import tempfile
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
+import cv2
 import numpy as np
 
-from .face import FaceLandmarks, detect_faces, serialize_faces
-from .io import ImageData, read_image, resize_max_side, write_image, write_json
+from .analysis import AnalysisV2
+from .face import FaceLandmarks, detect_faces, find_face, serialize_faces
+from .io import ImageData, read_image, resize_max_side, to_uint8, write_image, write_json
 from .landmark_indices import FACE_OVAL
+from .models.model_config import AnalysisConfig
+from .types import AnalysisResult
 
 
 @dataclass
@@ -27,9 +31,11 @@ class ImageSession:
     active_face_id: str | None
     exif: bytes | None = None
     alpha: np.ndarray | None = None
+    analysis_config: AnalysisConfig | None = None
+    analysis_result: AnalysisResult | None = None
 
     def to_json(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "image_id": self.image_id,
             "source_path": self.source_path,
             "preview_path": str(self.preview_path),
@@ -40,6 +46,15 @@ class ImageSession:
             "faces": serialize_faces(self.faces_for_size(self.preview_width, self.preview_height)),
             "active_face_id": self.active_face_id,
         }
+        if self.analysis_config is not None:
+            payload["analysis"] = {
+                "version": self.analysis_config.version,
+                "debug": self.analysis_config.debug,
+                "debug_dir": self.analysis_config.debug_dir,
+            }
+        if self.analysis_result is not None:
+            payload["analysis_result"] = self.analysis_result.to_json()
+        return payload
 
     def faces_for_size(self, width: int, height: int) -> list[FaceLandmarks]:
         return [scale_face(face, width, height) for face in self.faces]
@@ -50,7 +65,13 @@ class SessionRegistry:
         self.cache_root = Path(cache_root) if cache_root else default_cache_root()
         self.sessions: dict[str, ImageSession] = {}
 
-    def load_image(self, image_path: str, preview_max_side: int = 1600, detect: bool = True) -> ImageSession:
+    def load_image(
+        self,
+        image_path: str,
+        preview_max_side: int = 1600,
+        detect: bool = True,
+        analysis_config: AnalysisConfig | None = None,
+    ) -> ImageSession:
         data = read_image(image_path)
         preview = resize_max_side(data.rgb, int(np.clip(preview_max_side, 512, 2400)))
         preview_height, preview_width = preview.shape[:2]
@@ -60,9 +81,20 @@ class SessionRegistry:
         preview_path = cache_dir / "preview.png"
         write_image(preview_path, preview)
 
-        preview_faces = detect_faces(preview) if detect else []
+        analysis_result: AnalysisResult | None = None
+        analysis_config = analysis_config.normalized() if analysis_config is not None else None
+        if analysis_config and analysis_config.version == "v2" and analysis_config.debug and analysis_config.debug_dir is None:
+            analysis_config = replace(analysis_config, debug_dir=str(cache_dir / "analysis_v2"))
+
+        if detect and analysis_config and analysis_config.version == "v2":
+            preview_bgr = cv2.cvtColor(to_uint8(preview), cv2.COLOR_RGB2BGR)
+            analysis_result = AnalysisV2(analysis_config).analyze(preview_bgr)
+            preview_faces = legacy_faces_from_analysis(analysis_result)
+        else:
+            preview_faces = detect_faces(preview) if detect else []
         faces = normalize_faces(preview_faces, preview_width, preview_height)
-        active = max(faces, key=lambda item: item.bbox[2] * item.bbox[3]).face_id if faces else None
+        active_face = find_face(faces, None)
+        active = active_face.face_id if active_face else None
 
         session = ImageSession(
             image_id=image_id,
@@ -77,6 +109,8 @@ class SessionRegistry:
             active_face_id=active,
             exif=data.exif,
             alpha=data.alpha,
+            analysis_config=analysis_config,
+            analysis_result=analysis_result,
         )
         self.sessions[image_id] = session
         write_json(cache_dir / "session.json", session.to_json())
@@ -111,6 +145,21 @@ def normalize_faces(faces: list[FaceLandmarks], width: int, height: int) -> list
         bbox = (x / width, y / height, w / width, h / height)
         normalized.append(FaceLandmarks(face.face_id, bbox, face.points.copy(), face.confidence))
     return normalized
+
+
+def legacy_faces_from_analysis(result: AnalysisResult) -> list[FaceLandmarks]:
+    width, height = result.image_size
+    faces: list[FaceLandmarks] = []
+    for face in result.faces:
+        landmarks = face.landmarks
+        if landmarks is None:
+            continue
+        points = landmarks.astype(np.float32).copy()
+        points[:, 0] /= max(1, width)
+        points[:, 1] /= max(1, height)
+        x, y, w, h = face.bbox
+        faces.append(FaceLandmarks(face.face_id, (x, y, w, h), points, face.confidence))
+    return faces
 
 
 def scale_face(face: FaceLandmarks, width: int, height: int) -> FaceLandmarks:

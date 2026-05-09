@@ -1,6 +1,6 @@
 # Algorithm Specification
 
-This document describes the current CPU implementation. Future body parsing, pose-driven body reshape, ARAP mesh warp, and GPU operation implementations are future work and must not be treated as current behavior.
+This document describes the current CPU implementation. Analysis V2 now provides model slots, degraded person masks, coarse human parsing regions, semantic skin masks, and debug overlays. Concrete SCHP/SCRFD/RetinaFace ONNX adapters, pose-driven body reshape, ARAP mesh warp, and GPU operation implementations remain future work unless a local adapter is explicitly configured.
 
 ## 1. Current Pipeline
 
@@ -9,7 +9,7 @@ RGB float32 image
   ↓
 face detection and landmark selection
   ↓
-face/skin/eye/mouth/protected masks
+Analysis V2 optional person/parsing/skin/body regions, or V1 face/skin/eye/mouth/protected masks
   ↓
 liquify handles from active face and params
   ↓
@@ -32,14 +32,15 @@ RGB float32 result
 
 ## 2. Face Detection
 
-`face.py` currently uses a practical fallback chain:
+Analysis V2 is available when `analysis.version` is `v2`. It first checks configured local model slots and then uses the safe classic detector chain. Debug output records the selected face source, bbox, score, landmarks, and quality hints.
+
+`face.py` currently uses this default detector chain:
 
 1. MediaPipe Face Mesh when the package and runtime are available.
-2. OpenCV Haar face detector.
-3. Skin-region candidate fallback.
-4. Heuristic centered fallback when explicitly allowed.
+2. Eye-pair detector.
+3. OpenCV Haar face detector.
 
-Detected Haar and MediaPipe boxes are expanded before creating synthetic or real landmark regions so cheeks, jaw, chin, and hairline-adjacent masks have enough context. `find_face` selects the requested `face_id` or the largest face.
+Skin-region and centered heuristic face guesses are disabled by default and are not used by Analysis V2 because they can select background. Detected boxes are expanded before creating synthetic or real landmark regions so cheeks, jaw, chin, and hairline-adjacent masks have enough context. `find_face` selects the requested `face_id` or the largest face.
 
 ## 3. Landmark and Mask Regions
 
@@ -125,6 +126,8 @@ Internally it solves target-to-source because `cv2.remap` expects each output pi
 
 Skin retouch is implemented in `smoothing.py`.
 
+When Analysis V2 is enabled, `skin_final_mask` is passed into skin smoothing as the primary mask. This mask starts from semantic person/body regions, is intersected with the person mask, refined by CPU color checks, and excludes protected facial/hair/clothing regions. The color checks only refine existing semantic candidates; they are not allowed to create a standalone skin fallback.
+
 ### Refined Skin Mask
 
 `refined_skin_mask(image, masks)` combines:
@@ -194,8 +197,9 @@ CPU output should be deterministic for identical input image, parameters, face s
 
 ## 10. Known Limitations
 
-- No current body pose, human parsing, body cage, body sliders, ARAP, or DensePose integration.
+- Analysis V2 exposes human parsing model slots and coarse fallback regions, but generic SCHP/CIHP/LIP/ATR ONNX decoding is not implemented yet.
+- Body sliders currently use conservative geometric handles; pose-driven body cage, ARAP, and DensePose integration remain future work.
 - GPU backends are diagnostic probes only.
-- Refined skin mask is heuristic and can misclassify skin-colored background.
+- V1 refined skin mask is heuristic and can misclassify skin-colored background. V2 suppresses this with a person mask when enabled.
 - Face detection is robust enough for the demo path but not equivalent to InsightFace/SCRFD.
 - Landmark confidence and yaw/pitch validation are not yet fully modeled.

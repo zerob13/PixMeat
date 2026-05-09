@@ -4,15 +4,20 @@ import json
 import shutil
 import sys
 import time
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Callable
 
+import cv2
+
+from .analysis import AnalysisV2
 from .debug import draw_landmarks
 from .diagnostics import get_health
 from .errors import EngineError
-from .io import read_image, write_image
+from .io import read_image, to_uint8, write_image
 from .jobs import JobRegistry
 from .masks import build_masks
+from .models.model_config import AnalysisConfig
 from .params import EditParams
 from .pipeline import process_image
 from .protocol import error_response, event_message, success_response
@@ -26,6 +31,7 @@ class EngineApi:
         self.sessions = SessionRegistry()
         self.jobs = JobRegistry()
         self.preferred_backend = "auto"
+        self.analysis_config = AnalysisConfig.from_env()
         self.emit = emit or (lambda _message: None)
 
     def handle(self, request: dict[str, Any]) -> dict[str, Any]:
@@ -72,6 +78,7 @@ class EngineApi:
             str(image_path),
             preview_max_side=int(params.get("preview_max_side", 1600)),
             detect=bool(params.get("detect_faces", True)),
+            analysis_config=AnalysisConfig.from_payload(params.get("analysis"), base=self.analysis_config),
         )
         return session.to_json()
 
@@ -91,6 +98,7 @@ class EngineApi:
             faces,
             params.get("active_face_id") or session.active_face_id,
             edit_params,
+            analysis_result=session.analysis_result,
         )
         output_path = session.cache_dir / f"preview_{safe_name(token)}.png"
         write_image(output_path, result)
@@ -123,12 +131,14 @@ class EngineApi:
             progress(0.02, "loading_original")
             original = read_image(session.source_path)
             edit_params = EditParams.from_payload(params.get("params"))
+            analysis_result = self._analysis_for_original(session, original.rgb, job_id)
             faces = session.faces_for_size(original.width, original.height)
             result = process_image(
                 original.rgb,
                 faces,
                 params.get("active_face_id") or session.active_face_id,
                 edit_params,
+                analysis_result=analysis_result,
                 progress=progress,
             )
             temp_path = output_path.with_name(f"{output_path.stem}.tmp{output_path.suffix}")
@@ -163,6 +173,29 @@ class EngineApi:
 
     def debug_render_masks(self, params: dict[str, Any]) -> dict[str, Any]:
         session = self._get_session(params)
+        if session.analysis_config and session.analysis_config.version == "v2":
+            image = read_image(session.preview_path)
+            debug_dir = Path(str(params.get("debug_dir") or session.cache_dir / "analysis_v2_debug"))
+            config = replace(session.analysis_config, debug=True, debug_dir=str(debug_dir))
+            preview_bgr = cv2.cvtColor(to_uint8(image.rgb), cv2.COLOR_RGB2BGR)
+            result = AnalysisV2(config).analyze(preview_bgr)
+            paths = {
+                "faces": debug_dir / "01_faces.png",
+                "face_landmarks": debug_dir / "02_face_landmarks.png",
+                "person_mask": debug_dir / "03_person_mask.png",
+                "human_parsing_labels": debug_dir / "04_human_parsing_labels.png",
+                "skin_semantic_mask": debug_dir / "05_skin_semantic_mask.png",
+                "skin_color_refine_mask": debug_dir / "06_skin_color_refine_mask.png",
+                "skin_final_mask": debug_dir / "07_skin_final_mask.png",
+                "body_regions": debug_dir / "08_body_regions.png",
+                "confidence_map": debug_dir / "09_confidence_map.png",
+                "analysis_json": debug_dir / "analysis_v2.json",
+            }
+            return {
+                "analysis": result.to_json(),
+                "paths": {key: str(value) for key, value in paths.items()},
+            }
+
         faces = session.faces_for_size(session.preview_width, session.preview_height)
         face = next((item for item in faces if item.face_id == params.get("face_id")), faces[0] if faces else None)
         if face is None:
@@ -194,6 +227,17 @@ class EngineApi:
         if session is None:
             raise EngineError("image_not_found", f"Unknown image_id: {image_id}")
         return session
+
+    def _analysis_for_original(self, session, rgb: Any, job_id: str):
+        if not session.analysis_config or session.analysis_config.version != "v2":
+            return None
+        if session.analysis_result and session.analysis_result.image_size == (rgb.shape[1], rgb.shape[0]):
+            return session.analysis_result
+        config = session.analysis_config
+        if config.debug and config.debug_dir is None:
+            config = replace(config, debug_dir=str(session.cache_dir / f"analysis_v2_export_{safe_name(job_id)}"))
+        bgr = cv2.cvtColor(to_uint8(rgb), cv2.COLOR_RGB2BGR)
+        return AnalysisV2(config).analyze(bgr)
 
 
 def safe_name(value: str) -> str:

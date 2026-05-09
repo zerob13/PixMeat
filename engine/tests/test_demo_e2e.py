@@ -21,10 +21,10 @@ def test_demo_image_detects_primary_portrait_face(demo_image_path: Path | None) 
     center_x = (x + width * 0.5) / preview_width
     center_y = (y + height * 0.5) / preview_height
 
-    assert 0.30 <= center_x <= 0.55
-    assert 0.22 <= center_y <= 0.42
-    assert 0.10 <= width / preview_width <= 0.22
-    assert 0.07 <= height / preview_height <= 0.16
+    assert 0.32 <= center_x <= 0.52
+    assert 0.28 <= center_y <= 0.43
+    assert 0.12 <= width / preview_width <= 0.30
+    assert 0.10 <= height / preview_height <= 0.22
 
 
 def test_demo_image_processes_with_all_major_groups(tmp_path, demo_image_path: Path | None) -> None:
@@ -34,6 +34,9 @@ def test_demo_image_processes_with_all_major_groups(tmp_path, demo_image_path: P
     class Args:
         input = str(demo_image_path)
         output = str(tmp_path / "demo_output.jpg")
+        body_slim = 22
+        waist_slim = 18
+        arm_slim = 12
         face_slim = 30
         jawline = 20
         chin_length = 4

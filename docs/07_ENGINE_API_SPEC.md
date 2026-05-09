@@ -147,7 +147,17 @@ Engine events are also one JSON object followed by newline and use `type: "event
   "params": {
     "image_path": "/path/to/input.jpg",
     "preview_max_side": 1600,
-    "detect_faces": true
+    "detect_faces": true,
+    "analysis": {
+      "version": "v2",
+      "debug": false,
+      "device": "auto",
+      "model_paths": {
+        "face_landmarker": "/models/face_landmarker.task",
+        "person_segmentation": "/models/selfie_segmenter.task",
+        "human_parsing": "/models/schp.onnx"
+      }
+    }
   }
 }
 ```
@@ -174,7 +184,17 @@ Engine events are also one JSON object followed by newline and use `type: "event
         "landmark_count": 468
       }
     ],
-    "active_face_id": "face_1"
+    "active_face_id": "face_1",
+    "analysis": {
+      "version": "v2",
+      "debug": false,
+      "debug_dir": null
+    },
+    "analysis_result": {
+      "confidence": {
+        "overall": 0.72
+      }
+    }
   }
 }
 ```
@@ -183,7 +203,7 @@ Engine events are also one JSON object followed by newline and use `type: "event
 
 - Reads image.
 - Creates preview image.
-- Detects faces when requested.
+- Detects faces when requested. If `analysis.version` is `v2`, runs Analysis V2 on the preview and stores compact analysis metadata on the session.
 - Stores session metadata.
 - Returns preview path for renderer.
 
@@ -398,6 +418,25 @@ Developer-mode method.
       "skin_mask": "/cache/img_abc123/debug/skin_mask.png",
       "refined_skin_mask": "/cache/img_abc123/debug/refined_skin_mask.png"
     }
+  }
+}
+```
+
+For Analysis V2 sessions this method writes the full V2 debug set instead of only V1 masks:
+
+```json
+{
+  "paths": {
+    "faces": "/cache/img_abc123/analysis_v2_debug/01_faces.png",
+    "face_landmarks": "/cache/img_abc123/analysis_v2_debug/02_face_landmarks.png",
+    "person_mask": "/cache/img_abc123/analysis_v2_debug/03_person_mask.png",
+    "human_parsing_labels": "/cache/img_abc123/analysis_v2_debug/04_human_parsing_labels.png",
+    "skin_semantic_mask": "/cache/img_abc123/analysis_v2_debug/05_skin_semantic_mask.png",
+    "skin_color_refine_mask": "/cache/img_abc123/analysis_v2_debug/06_skin_color_refine_mask.png",
+    "skin_final_mask": "/cache/img_abc123/analysis_v2_debug/07_skin_final_mask.png",
+    "body_regions": "/cache/img_abc123/analysis_v2_debug/08_body_regions.png",
+    "confidence_map": "/cache/img_abc123/analysis_v2_debug/09_confidence_map.png",
+    "analysis_json": "/cache/img_abc123/analysis_v2_debug/analysis_v2.json"
   }
 }
 ```

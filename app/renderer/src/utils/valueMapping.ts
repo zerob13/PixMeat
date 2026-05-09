@@ -1,34 +1,50 @@
-import type { EditParams } from '@/types/params'
+import { defaultParams, type EditParams } from '@/types/params'
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, Number.isFinite(value) ? value : min))
 
-export const clampUiParams = (params: EditParams): EditParams => ({
-  liquify: {
-    faceSlim: clamp(params.liquify.faceSlim, 0, 100),
-    jawline: clamp(params.liquify.jawline, 0, 100),
-    chinLength: clamp(params.liquify.chinLength, -50, 50),
-    eyeEnlarge: clamp(params.liquify.eyeEnlarge, 0, 100),
-    noseSlim: clamp(params.liquify.noseSlim, 0, 100),
-    smile: clamp(params.liquify.smile, 0, 100)
-  },
-  skin: {
-    skinSmooth: clamp(params.skin.skinSmooth, 0, 100),
-    textureKeep: clamp(params.skin.textureKeep, 0, 100),
-    blemishSoften: clamp(params.skin.blemishSoften, 0, 100),
-    skinToneEven: clamp(params.skin.skinToneEven, 0, 100)
-  },
-  beauty: {
-    brightness: clamp(params.beauty.brightness, -50, 50),
-    eyeBright: clamp(params.beauty.eyeBright, 0, 100),
-    teethWhite: clamp(params.beauty.teethWhite, 0, 100),
-    softContrast: clamp(params.beauty.softContrast, -50, 50)
+export const clampUiParams = (params: EditParams): EditParams => {
+  const body = params.body ?? defaultParams.body
+  const liquify = params.liquify ?? defaultParams.liquify
+  const skin = params.skin ?? defaultParams.skin
+  const beauty = params.beauty ?? defaultParams.beauty
+  return {
+    body: {
+      bodySlim: clamp(body.bodySlim, 0, 100),
+      waistSlim: clamp(body.waistSlim, 0, 100),
+      armSlim: clamp(body.armSlim, 0, 100)
+    },
+    liquify: {
+      faceSlim: clamp(liquify.faceSlim, 0, 100),
+      jawline: clamp(liquify.jawline, 0, 100),
+      chinLength: clamp(liquify.chinLength, -50, 50),
+      eyeEnlarge: clamp(liquify.eyeEnlarge, 0, 100),
+      noseSlim: clamp(liquify.noseSlim, 0, 100),
+      smile: clamp(liquify.smile, 0, 100)
+    },
+    skin: {
+      skinSmooth: clamp(skin.skinSmooth, 0, 100),
+      textureKeep: clamp(skin.textureKeep, 0, 100),
+      blemishSoften: clamp(skin.blemishSoften, 0, 100),
+      skinToneEven: clamp(skin.skinToneEven, 0, 100)
+    },
+    beauty: {
+      brightness: clamp(beauty.brightness, -50, 50),
+      eyeBright: clamp(beauty.eyeBright, 0, 100),
+      teethWhite: clamp(beauty.teethWhite, 0, 100),
+      softContrast: clamp(beauty.softContrast, -50, 50)
+    }
   }
-})
+}
 
 export const toEngineParams = (params: EditParams): EditParams => {
   const safe = clampUiParams(params)
   return {
+    body: {
+      bodySlim: safe.body.bodySlim / 100,
+      waistSlim: safe.body.waistSlim / 100,
+      armSlim: safe.body.armSlim / 100
+    },
     liquify: {
       faceSlim: safe.liquify.faceSlim / 100,
       jawline: safe.liquify.jawline / 100,

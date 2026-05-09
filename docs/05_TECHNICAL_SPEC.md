@@ -14,9 +14,9 @@
 | Image arrays | NumPy |
 | Image IO | Pillow + OpenCV |
 | CV operations | OpenCV |
-| Face landmarks | MediaPipe Face Mesh when available, Haar/skin/heuristic fallback |
+| Face landmarks | Analysis V2 model slots plus MediaPipe/eye-pair/Haar classic detection |
 | Tensor acceleration | PyTorch probe only in current build |
-| Optional inference runtime | Not used in current build |
+| Optional inference runtime | Local MediaPipe Tasks/ONNX Runtime model slots for Analysis V2 |
 | Packaging | electron-builder + bundled Python executable |
 
 ## 2. Runtime Strategy

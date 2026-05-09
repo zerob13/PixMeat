@@ -65,14 +65,29 @@ PixMeat/
 │  │  ├─ session.py
 │  │  ├─ jobs.py
 │  │  ├─ io.py
+│  │  ├─ types.py
 │  │  ├─ face.py
 │  │  ├─ landmark_indices.py
 │  │  ├─ masks.py
+│  │  ├─ body.py
 │  │  ├─ liquify.py
 │  │  ├─ warp.py
 │  │  ├─ smoothing.py
 │  │  ├─ beauty.py
 │  │  ├─ pipeline.py
+│  │  ├─ analysis/
+│  │  │  ├─ analyzer_v2.py
+│  │  │  ├─ model_registry.py
+│  │  │  ├─ face_detector.py
+│  │  │  ├─ face_landmarks.py
+│  │  │  ├─ person_segmentation.py
+│  │  │  ├─ human_parsing.py
+│  │  │  ├─ skin_mask.py
+│  │  │  ├─ region_builder.py
+│  │  │  ├─ confidence.py
+│  │  │  └─ debug_overlays.py
+│  │  ├─ models/
+│  │  │  └─ model_config.py
 │  │  ├─ backends/
 │  │  │  ├─ __init__.py
 │  │  │  ├─ base.py
@@ -231,12 +246,29 @@ Responsibilities:
 - Metadata handling.
 - Preview resizing.
 
+### `types.py`
+
+- Serializable Analysis V2 dataclasses.
+- Face/person/region/confidence/result schema helpers.
+- Mask and bbox summary utilities.
+
 ### `face.py`
 
 - MediaPipe Face Mesh detection when available.
-- Haar, skin-region, and heuristic fallback detection.
+- Eye-pair and Haar classic detection.
+- Legacy skin-region and centered guess detectors are disabled by default and are not used by Analysis V2.
 - Landmark conversion.
-- Face bbox expansion and synthetic landmark fallback.
+- Face bbox expansion and synthetic landmarks only after a real face candidate exists.
+
+### `analysis/`
+
+- Analysis V2 orchestration.
+- Local model registry and backend diagnostics.
+- Face detection and face landmark wrappers.
+- Person segmentation and human parsing wrappers with degraded geometry when local model weights are unavailable.
+- Semantic skin mask generation.
+- Body/face region building.
+- Debug overlay export.
 
 ### `landmark_indices.py`
 

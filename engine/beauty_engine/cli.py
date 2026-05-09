@@ -4,14 +4,19 @@ import argparse
 import json
 from pathlib import Path
 
+import cv2
+
+from .analysis import AnalysisV2
 from .api import run_stdio
 from .debug import draw_landmarks
 from .diagnostics import get_health
 from .face import detect_faces
-from .io import read_image, write_image
+from .io import read_image, to_uint8, write_image
 from .masks import build_masks
+from .models.model_config import AnalysisConfig
 from .params import EditParams
 from .pipeline import process_image
+from .session import legacy_faces_from_analysis
 
 
 def main() -> None:
@@ -24,11 +29,17 @@ def main() -> None:
     process.add_argument("input")
     process.add_argument("output")
     add_param_args(process)
+    add_analysis_args(process)
     process.add_argument("--debug-dir")
 
     debug = subparsers.add_parser("debug-masks")
     debug.add_argument("input")
     debug.add_argument("debug_dir")
+
+    analyze = subparsers.add_parser("analyze")
+    analyze.add_argument("input")
+    analyze.add_argument("debug_dir")
+    add_analysis_args(analyze)
 
     args = parser.parse_args()
     if args.command == "health":
@@ -39,9 +50,14 @@ def main() -> None:
         run_process(args)
     elif args.command == "debug-masks":
         run_debug_masks(args.input, args.debug_dir)
+    elif args.command == "analyze":
+        run_analyze(args)
 
 
 def add_param_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--body-slim", type=float, default=0)
+    parser.add_argument("--waist-slim", type=float, default=0)
+    parser.add_argument("--arm-slim", type=float, default=0)
     parser.add_argument("--face-slim", type=float, default=0)
     parser.add_argument("--jawline", type=float, default=0)
     parser.add_argument("--chin-length", type=float, default=0)
@@ -58,8 +74,20 @@ def add_param_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--soft-contrast", type=float, default=0)
 
 
+def add_analysis_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--analysis-version", choices=["v1", "v2"], default=None)
+    parser.add_argument("--analysis-device", choices=["auto", "cpu", "cuda", "mps"], default=None)
+    parser.add_argument("--face-detector-model")
+    parser.add_argument("--face-landmarker-model")
+    parser.add_argument("--person-segmentation-model")
+    parser.add_argument("--human-parsing-model")
+
+
 def params_from_args(args: argparse.Namespace) -> EditParams:
     return EditParams.from_cli(
+        body_slim=args.body_slim,
+        waist_slim=args.waist_slim,
+        arm_slim=args.arm_slim,
         face_slim=args.face_slim,
         jawline=args.jawline,
         chin_length=args.chin_length,
@@ -79,14 +107,62 @@ def params_from_args(args: argparse.Namespace) -> EditParams:
 
 def run_process(args: argparse.Namespace) -> None:
     image = read_image(args.input)
-    faces = detect_faces(image.rgb)
+    analysis_result = run_analysis_if_enabled(args, image.rgb, args.debug_dir)
+    faces = legacy_faces_from_analysis(analysis_result) if analysis_result is not None else detect_faces(image.rgb)
     debug_dir = Path(args.debug_dir) if args.debug_dir else None
     if debug_dir and faces:
         debug_dir.mkdir(parents=True, exist_ok=True)
         draw_landmarks(image.rgb, faces[0], debug_dir / "landmarks.png")
-    result = process_image(image.rgb, faces, faces[0].face_id if faces else None, params_from_args(args), debug_dir=debug_dir)
+    result = process_image(
+        image.rgb,
+        faces,
+        faces[0].face_id if faces else None,
+        params_from_args(args),
+        analysis_result=analysis_result,
+        debug_dir=debug_dir,
+    )
     write_image(args.output, result, alpha=image.alpha, exif=image.exif)
     print(json.dumps({"ok": True, "output": str(Path(args.output)), "faces": len(faces)}))
+
+
+def run_analyze(args: argparse.Namespace) -> None:
+    image = read_image(args.input)
+    config = analysis_config_from_args(args, debug_dir=args.debug_dir, default_version="v2")
+    bgr = cv2.cvtColor(to_uint8(image.rgb), cv2.COLOR_RGB2BGR)
+    result = AnalysisV2(config).analyze(bgr)
+    print(json.dumps({"ok": True, "debug_dir": str(Path(args.debug_dir)), "analysis": result.to_json()}, indent=2))
+
+
+def run_analysis_if_enabled(args: argparse.Namespace, rgb, debug_dir: str | None):
+    config = analysis_config_from_args(args, debug_dir=debug_dir, default_version="v1")
+    if config.version != "v2":
+        return None
+    bgr = cv2.cvtColor(to_uint8(rgb), cv2.COLOR_RGB2BGR)
+    return AnalysisV2(config).analyze(bgr)
+
+
+def analysis_config_from_args(
+    args: argparse.Namespace,
+    *,
+    debug_dir: str | None,
+    default_version: str,
+) -> AnalysisConfig:
+    base = AnalysisConfig.from_env()
+    model_paths = {
+        "face_detector": getattr(args, "face_detector_model", None),
+        "face_landmarker": getattr(args, "face_landmarker_model", None),
+        "person_segmentation": getattr(args, "person_segmentation_model", None),
+        "human_parsing": getattr(args, "human_parsing_model", None),
+    }
+    explicit_version = getattr(args, "analysis_version", None)
+    payload = {
+        "version": explicit_version or (default_version if default_version == "v2" else base.version),
+        "debug": bool(debug_dir) or base.debug,
+        "debug_dir": debug_dir or base.debug_dir,
+        "device": getattr(args, "analysis_device", None) or base.device,
+        "model_paths": {key: value for key, value in model_paths.items() if value},
+    }
+    return AnalysisConfig.from_payload(payload, base=base)
 
 
 def run_debug_masks(input_path: str, debug_dir: str) -> None:

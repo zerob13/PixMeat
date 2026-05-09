@@ -9,6 +9,7 @@ const builtInPresets: Preset[] = [
     name: 'Natural',
     builtIn: true,
     params: {
+      body: { bodySlim: 4, waistSlim: 3, armSlim: 2 },
       liquify: { faceSlim: 8, jawline: 5, chinLength: 0, eyeEnlarge: 6, noseSlim: 0, smile: 4 },
       skin: { skinSmooth: 25, textureKeep: 75, blemishSoften: 10, skinToneEven: 12 },
       beauty: { brightness: 5, eyeBright: 8, teethWhite: 0, softContrast: 4 }
@@ -19,6 +20,7 @@ const builtInPresets: Preset[] = [
     name: 'Clean Portrait',
     builtIn: true,
     params: {
+      body: { bodySlim: 8, waistSlim: 6, armSlim: 4 },
       liquify: { faceSlim: 14, jawline: 10, chinLength: 0, eyeEnlarge: 10, noseSlim: 8, smile: 6 },
       skin: { skinSmooth: 38, textureKeep: 72, blemishSoften: 22, skinToneEven: 22 },
       beauty: { brightness: 6, eyeBright: 12, teethWhite: 10, softContrast: 6 }
@@ -29,6 +31,7 @@ const builtInPresets: Preset[] = [
     name: 'Soft Beauty',
     builtIn: true,
     params: {
+      body: { bodySlim: 12, waistSlim: 10, armSlim: 8 },
       liquify: { faceSlim: 20, jawline: 12, chinLength: -2, eyeEnlarge: 16, noseSlim: 12, smile: 8 },
       skin: { skinSmooth: 52, textureKeep: 62, blemishSoften: 28, skinToneEven: 34 },
       beauty: { brightness: 9, eyeBright: 18, teethWhite: 14, softContrast: 2 }

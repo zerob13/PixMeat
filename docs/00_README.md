@@ -21,11 +21,12 @@ As of the current codebase:
 1. Electron + React UI opens images, shows preview, sliders, presets, compare modes, settings, and export flow.
 2. Python engine exposes stdio JSON-RPC plus CLI commands for `health`, `process`, and `debug-masks`.
 3. Supported image IO uses Pillow with EXIF transpose and RGB float32 processing.
-4. Face analysis tries MediaPipe Face Mesh, then Haar detection, then skin/heuristic fallback. Haar boxes are expanded for safer face-local edits.
+4. Face detection uses model slots when Analysis V2 is enabled, then safe classic MediaPipe/eye-pair/Haar detection. Legacy skin/background and centered face guesses are disabled by default.
 5. Liquify uses parameterized face handles, boundary anchors, inverse MLS dense warp maps, OpenCV `remap`, single-pass blending, and foldover debug output.
-6. Skin retouch uses a refined skin mask, guided filtering, base/detail reconstruction, conservative blemish softening, and Lab tone evening.
-7. Debug artifacts include landmarks, face mask, initial skin mask, refined skin mask, eye mask, mouth mask, warp grid, control handles, liquify mask, and foldover heatmap.
-8. Test coverage currently includes renderer state/components plus engine params, IO, masks, warp, liquify, smoothing, beauty, pipeline, API, and demo E2E tests.
+6. Body reshape currently uses conservative face/body geometry handles on CPU.
+7. Skin retouch uses either Analysis V2 `skin_final_mask` or the V1 refined skin mask, guided filtering, base/detail reconstruction, conservative blemish softening, and Lab tone evening.
+8. Debug artifacts include V1 masks/warp files and V2 face/person/parsing/skin/body/confidence overlays.
+9. Test coverage currently includes renderer state/components plus engine params, IO, masks, warp, liquify, body, smoothing, beauty, pipeline, API, demo E2E, and Analysis V2 tests.
 
 ## V1 Product Positioning
 
@@ -52,7 +53,7 @@ A lightweight local portrait retouching tool for photographers, creators, and sm
 | UI | React + TypeScript |
 | Local engine | Python |
 | Image processing | OpenCV + NumPy CPU pipeline |
-| Face landmarks | MediaPipe Face Mesh when available, Haar/skin/heuristic fallback |
+| Face landmarks | Analysis V2 model slots, MediaPipe/eye-pair/Haar classic detection, synthetic landmarks only after a real face candidate |
 | GPU acceleration | CUDA/MPS/OpenCV CUDA diagnostics only; processing acceleration is future work |
 | Packaging | electron-builder + bundled Python engine |
 
@@ -69,6 +70,7 @@ A lightweight local portrait retouching tool for photographers, creators, and sm
 | `07_ENGINE_API_SPEC.md` | Electron ↔ Python engine protocol |
 | `08_ACCELERATION_AND_BACKENDS.md` | CPU/CUDA/MPS backend strategy |
 | `09_PROJECT_STRUCTURE.md` | Repository structure and module boundaries |
+| `analysis_v2.md` | Analysis V2 config, degraded behavior, schema, masks, regions, and debug overlays |
 | `10_DEVELOPMENT_PLAN.md` | Milestones and implementation order |
 | `11_TASK_BREAKDOWN.md` | Codex-ready task list with acceptance criteria |
 | `12_TEST_PLAN.md` | Unit, integration, visual, performance tests |

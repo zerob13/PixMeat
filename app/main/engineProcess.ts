@@ -26,7 +26,8 @@ export class EngineProcess extends EventEmitter {
       stdio: 'pipe',
       env: {
         ...process.env,
-        PYTHONUNBUFFERED: '1'
+        PYTHONUNBUFFERED: '1',
+        PIXMEAT_MODEL_DIR: process.env.PIXMEAT_MODEL_DIR ?? join(cwd, 'models')
       },
       windowsHide: true
     })
@@ -94,12 +95,24 @@ export class EngineProcess extends EventEmitter {
       }
     }
 
-    const python = process.env.PIXMEAT_PYTHON ?? (process.platform === 'win32' ? 'python' : 'python3')
+    const engineRoot = join(process.cwd(), 'engine')
+    const python = process.env.PIXMEAT_PYTHON ?? this.resolveDevPython(engineRoot)
     return {
       command: python,
       args: ['-m', 'beauty_engine.api'],
-      cwd: join(process.cwd(), 'engine')
+      cwd: engineRoot
     }
+  }
+
+  private resolveDevPython(engineRoot: string): string {
+    const venvPython =
+      process.platform === 'win32'
+        ? join(engineRoot, '.venv', 'Scripts', 'python.exe')
+        : join(engineRoot, '.venv', 'bin', 'python')
+    if (existsSync(venvPython)) {
+      return venvPython
+    }
+    return process.platform === 'win32' ? 'python' : 'python3'
   }
 
   private handleStdout(chunk: string): void {

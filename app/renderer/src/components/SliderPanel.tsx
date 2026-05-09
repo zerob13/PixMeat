@@ -17,6 +17,33 @@ export const SliderPanel = ({
   onResetGroup
 }: SliderPanelProps): JSX.Element => (
   <div className="flex h-full flex-col gap-5 overflow-y-auto px-4 py-4">
+    <SliderSection title="Body" onReset={() => onResetGroup('body')}>
+      <SliderControl
+        disabled={disabled}
+        label="Body Slim"
+        max={100}
+        min={0}
+        value={params.body.bodySlim}
+        onChange={(value) => onParamChange('body', 'bodySlim', value)}
+      />
+      <SliderControl
+        disabled={disabled}
+        label="Waist"
+        max={100}
+        min={0}
+        value={params.body.waistSlim}
+        onChange={(value) => onParamChange('body', 'waistSlim', value)}
+      />
+      <SliderControl
+        disabled={disabled}
+        label="Arms"
+        max={100}
+        min={0}
+        value={params.body.armSlim}
+        onChange={(value) => onParamChange('body', 'armSlim', value)}
+      />
+    </SliderSection>
+
     <SliderSection title="Liquify" onReset={() => onResetGroup('liquify')}>
       <SliderControl
         disabled={disabled}

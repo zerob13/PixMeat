@@ -25,6 +25,22 @@ def get_any(payload: dict[str, Any], snake: str, camel: str, default: float) -> 
 
 
 @dataclass(frozen=True)
+class BodyParams:
+    body_slim: float = 0.0
+    waist_slim: float = 0.0
+    arm_slim: float = 0.0
+
+    @classmethod
+    def from_payload(cls, payload: dict[str, Any] | None) -> "BodyParams":
+        payload = payload or {}
+        return cls(
+            body_slim=clamp(get_any(payload, "body_slim", "bodySlim", 0), 0, 1, 0),
+            waist_slim=clamp(get_any(payload, "waist_slim", "waistSlim", 0), 0, 1, 0),
+            arm_slim=clamp(get_any(payload, "arm_slim", "armSlim", 0), 0, 1, 0),
+        )
+
+
+@dataclass(frozen=True)
 class LiquifyParams:
     face_slim: float = 0.0
     jawline: float = 0.0
@@ -84,6 +100,7 @@ class BeautyParams:
 
 @dataclass(frozen=True)
 class EditParams:
+    body: BodyParams = field(default_factory=BodyParams)
     liquify: LiquifyParams = field(default_factory=LiquifyParams)
     skin: SkinParams = field(default_factory=SkinParams)
     beauty: BeautyParams = field(default_factory=BeautyParams)
@@ -92,6 +109,7 @@ class EditParams:
     def from_payload(cls, payload: dict[str, Any] | None) -> "EditParams":
         payload = payload or {}
         return cls(
+            body=BodyParams.from_payload(payload.get("body")),
             liquify=LiquifyParams.from_payload(payload.get("liquify")),
             skin=SkinParams.from_payload(payload.get("skin")),
             beauty=BeautyParams.from_payload(payload.get("beauty")),
@@ -100,6 +118,9 @@ class EditParams:
     @classmethod
     def from_cli(
         cls,
+        body_slim: float = 0,
+        waist_slim: float = 0,
+        arm_slim: float = 0,
         face_slim: float = 0,
         jawline: float = 0,
         chin_length: float = 0,
@@ -117,6 +138,11 @@ class EditParams:
     ) -> "EditParams":
         return cls.from_payload(
             {
+                "body": {
+                    "body_slim": body_slim / 100,
+                    "waist_slim": waist_slim / 100,
+                    "arm_slim": arm_slim / 100,
+                },
                 "liquify": {
                     "face_slim": face_slim / 100,
                     "jawline": jawline / 100,

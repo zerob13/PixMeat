@@ -18,6 +18,10 @@ extraResources:
     to: engine/requirements.txt
   - from: engine/pyproject.toml
     to: engine/pyproject.toml
+  - from: engine/models
+    to: engine/models
+    filter:
+      - "**/*"
 mac:
   target:
     - dmg

@@ -34,7 +34,7 @@ def test_load_preview_export_e2e(tmp_path, portrait_image) -> None:
     image_id = loaded["result"]["image_id"]
     assert Path(loaded["result"]["preview_path"]).exists()
 
-    params = EditParams.from_cli(face_slim=30, eye_enlarge=20, skin_smooth=40, brightness=8).to_dict()
+    params = EditParams.from_cli(body_slim=20, waist_slim=15, face_slim=30, eye_enlarge=20, skin_smooth=40, brightness=8).to_dict()
     preview = api.handle(
         {
             "id": "preview",
@@ -80,6 +80,9 @@ def test_each_slider_can_render_preview_e2e(tmp_path, portrait_image) -> None:
     image_id = loaded["result"]["image_id"]
     active_face_id = loaded["result"]["active_face_id"]
     slider_payloads = [
+        {"body": {"body_slim": 0.35}},
+        {"body": {"waist_slim": 0.35}},
+        {"body": {"arm_slim": 0.35}},
         {"liquify": {"face_slim": 0.35}},
         {"liquify": {"jawline": 0.35}},
         {"liquify": {"chin_length": 0.4}},
